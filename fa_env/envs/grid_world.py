@@ -3,7 +3,34 @@ import gymnasium as gym
 from gymnasium import spaces
 import pygame
 import numpy as np
+import random
 
+MAP = [
+        "gggggwwwggggg",    #1
+        "gggggwwwggggg",
+        "gggggpppggggg",
+        "gggsswwwssggg",
+        "gggsswwwssggg",    #5
+        "wwpwwwwwwwpww",
+        "wwpwwwwwwwpww",
+        "wwpwwwwwwwpww",
+        "ggpsswwwsspgg",
+        "gggsswwwssggg",
+        "gggggpppggggg",
+        "gggggwwwggggg",
+        "gggggwwwggggg"   #13
+
+]
+
+TERRAIN_TYPES = {
+    's': (252, 186, 3),  # Sand - yellow
+    'p': (100, 100, 100),  # Pavement - gray
+    'g': (0, 255, 0),      # Grass - green
+    'r': (255, 255, 0),    # Respawn - yellow
+    't': (255, 0, 0),       # Target - red
+    'b': (17, 54, 4),    # Bush - dark green)
+    'w': (65, 90, 217)        # Bush - dark green)
+}
 
 class Actions(Enum):
     right = 0
@@ -17,8 +44,11 @@ class Actions(Enum):
 class GridWorldEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=5):
-        self.size = size  # The size of the square grid
+    def __init__(self, render_mode=None):
+
+        self.base_map = np.array([list(row) for row in MAP])
+        self.map = self.base_map.copy()
+        self.size = len(MAP)    
         self.window_size = 512  # The size of the PyGame window
 
         # Observations are dictionaries with the agent's and the target's location.
@@ -26,8 +56,8 @@ class GridWorldEnv(gym.Env):
         # i.e. MultiDiscrete([size, size]).
         self.observation_space = spaces.Dict(
             {
-                "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-                "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+                "agent": spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
+                "target": spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
             }
         )
 
@@ -73,16 +103,33 @@ class GridWorldEnv(gym.Env):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
-        # Choose the agent's location uniformly at random
-        self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+        # Reset the Map
+        self.map = self.base_map.copy()
+        
+        #Place respawn
+        pavment_spaces = np.argwhere(self.map == 'p')
+        space = random.choice(pavment_spaces)
+        self.map[space[0], space[1]] = 'r'
 
-        # We will sample the target's location randomly until it does not
-        # coincide with the agent's location
-        self._target_location = self._agent_location
-        while np.array_equal(self._target_location, self._agent_location):
-            self._target_location = self.np_random.integers(
-                0, self.size, size=2, dtype=int
-            )
+        #Place target
+        sand_spaces = np.argwhere(self.map == 's')
+        space = random.choice(pavment_spaces)
+        self.map[space[0], space[1]] = 't'
+        
+        #Place bushes
+        for i in range(9):
+            grass_spaces = np.argwhere(self.map == 'g')
+            space = random.choice(grass_spaces)
+            self.map[space[0], space[1]] = 'b'
+
+
+        # Respawn
+        respawn = np.argwhere(self.map == 'r')[0]
+        self._agent_location = np.array(respawn)
+
+        # Target
+        target = np.argwhere(self.map == 't')[0]
+        self._target_location = np.array(target)
 
         observation = self._get_obs()
         info = self._get_info()
@@ -99,6 +146,7 @@ class GridWorldEnv(gym.Env):
         self._agent_location = np.clip(
             self._agent_location + direction, 0, self.size - 1
         )
+
         # An episode is done iff the agent has reached the target
         terminated = np.array_equal(self._agent_location, self._target_location)
         reward = 1 if terminated else 0  # Binary sparse rewards
@@ -128,15 +176,14 @@ class GridWorldEnv(gym.Env):
             self.window_size / self.size
         )  # The size of a single grid square in pixels
 
-        # First we draw the target
-        pygame.draw.rect(
-            canvas,
-            (255, 0, 0),
-            pygame.Rect(
-                pix_square_size * self._target_location,
-                (pix_square_size, pix_square_size),
-            ),
-        )
+
+        # Draw map
+        for i in range(self.size):
+            for j in range(self.size):
+                color = TERRAIN_TYPES[self.map[i, j]]
+                pygame.draw.rect(canvas, color, pygame.Rect(j * pix_square_size, i * pix_square_size, pix_square_size, pix_square_size))
+
+
         # Now we draw the agent
         pygame.draw.circle(
             canvas,

@@ -38,6 +38,7 @@ def run(episodes, is_training=True, render=False):
                 # If random number less than epsilon sample the action space uniformly
                 action = env.action_space.sample()
             else:
+                print(state['agent'])
                 action = np.argmax(q[convert_action_to_int(state['agent']), :])
                 # print(q[convert_action_to_int(state['agent']), :])
                 # print(action)
@@ -80,4 +81,4 @@ def run(episodes, is_training=True, render=False):
 
 # run(15000, render=False, is_training=True)
 
-run(100, render=True, is_training=False)
+run(100, render=True, is_training=True)
