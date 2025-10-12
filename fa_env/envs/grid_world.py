@@ -3,7 +3,34 @@ import gymnasium as gym
 from gymnasium import spaces
 import pygame
 import numpy as np
+import random
 
+MAP = np.array([
+    ["g", "g", "g", "g", "w", "w", "w", "g", "g", "g", "g", "g", "g"],
+    ["g", "g", "g", "g", "g", "w", "w", "w", "g", "g", "g", "g", "g"],
+    ["g", "g", "g", "g", "g", "p", "p", "p", "g", "g", "g", "g", "g"],
+    ["g", "g", "g", "s", "s", "w", "w", "w", "s", "s", "g", "g", "g"],
+    ["g", "g", "g", "s", "s", "w", "w", "w", "s", "s", "g", "g", "g"],
+    ["w", "w", "p", "w", "w", "w", "w", "w", "w", "w", "p", "w", "w"],
+    ["w", "w", "p", "w", "w", "w", "w", "w", "w", "w", "p", "w", "w"],
+    ["w", "w", "p", "w", "w", "w", "w", "w", "w", "w", "p", "w", "w"],
+    ["g", "g", "p", "s", "s", "w", "w", "w", "s", "s", "p", "g", "g"],
+    ["g", "g", "g", "s", "s", "w", "w", "w", "s", "s", "g", "g", "g"],
+    ["g", "g", "g", "g", "g", "p", "p", "p", "g", "g", "g", "g", "g"],
+    ["g", "g", "g", "g", "g", "w", "w", "w", "g", "g", "g", "g", "g"],
+    ["g", "g", "g", "g", "g", "w", "w", "w", "g", "g", "g", "g", "g"]
+])
+
+
+TERRAIN_TYPES = {
+    's': (252, 186, 3),    # Sand - yellow
+    'p': (100, 100, 100),  # Pavement - gray
+    'g': (0, 255, 0),      # Grass - green
+    'r': (255, 255, 0),    # Respawn - yellow
+    't': (255, 0, 0),      # Target - red
+    'b': (17, 54, 4),      # Bush - dark green)
+    'w': (65, 90, 217)     # Bush - dark green)
+}
 
 class Actions(Enum):
     right = 0
@@ -22,23 +49,10 @@ class GridWorldEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
     def __init__(self, render_mode=None):
-        self._map_matrix = np.array([
-            [1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1],
-            [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-            [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-            [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-            [1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1]
-        ])
 
-        self.size = len(self._map_matrix)  # The size of the square grid
+        self.base_map = np.array([list(row) for row in MAP])
+        self.map = self.base_map.copy()
+        self.size = len(MAP)    
         self.window_size = 664  # The size of the PyGame window
 
         # Observations are dictionaries with the agent's and the target's location.
@@ -47,7 +61,7 @@ class GridWorldEnv(gym.Env):
         self.observation_space = spaces.Dict(
             {
                 "agent": spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
-                "garbage_disposal": spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
+                "target": spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
             }
         )
 
@@ -103,6 +117,33 @@ class GridWorldEnv(gym.Env):
         self._target_location = self._agent_location
         while np.array_equal(self._target_location, self._agent_location):
             self._target_location = non_zero_coords[np.random.randint(0, len(non_zero_coords))]
+        # Reset the Map
+        self.map = self.base_map.copy()
+        
+        #Place respawn
+        pavment_spaces = np.argwhere(self.map == 'p')
+        space = random.choice(pavment_spaces)
+        self.map[space[0], space[1]] = 'r'
+
+        #Place target
+        sand_spaces = np.argwhere(self.map == 's')
+        space = random.choice(pavment_spaces)
+        self.map[space[0], space[1]] = 't'
+        
+        #Place bushes
+        for i in range(9):
+            grass_spaces = np.argwhere(self.map == 'g')
+            space = random.choice(grass_spaces)
+            self.map[space[0], space[1]] = 'b'
+
+
+        # Respawn
+        respawn = np.argwhere(self.map == 'r')[0]
+        self._agent_location = np.array(respawn)
+
+        # Target
+        target = np.argwhere(self.map == 't')[0]
+        self._target_location = np.array(target)
 
         observation = self._get_obs()
         info = self._get_info()
@@ -209,6 +250,38 @@ class GridWorldEnv(gym.Env):
         #         (pix_square_size * x, self.window_size),
         #         width=3,
         #     )
+
+        # Draw map
+        for i in range(self.size):
+            for j in range(self.size):
+                color = TERRAIN_TYPES[self.map[i, j]]
+                pygame.draw.rect(canvas, color, pygame.Rect(j * pix_square_size, i * pix_square_size, pix_square_size, pix_square_size))
+
+
+        # Now we draw the agent
+        pygame.draw.circle(
+            canvas,
+            (0, 0, 255),
+            (self._agent_location + 0.5) * pix_square_size,
+            pix_square_size / 3,
+        )
+
+        # Finally, add some gridlines
+        for x in range(self.size + 1):
+            pygame.draw.line(
+                canvas,
+                0,
+                (0, pix_square_size * x),
+                (self.window_size, pix_square_size * x),
+                width=3,
+            )
+            pygame.draw.line(
+                canvas,
+                0,
+                (pix_square_size * x, 0),
+                (pix_square_size * x, self.window_size),
+                width=3,
+            )
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
