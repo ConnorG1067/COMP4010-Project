@@ -6,31 +6,31 @@ import numpy as np
 import random
 
 MAP = np.array([
-    ["g", "g", "g", "g", "w", "w", "w", "g", "g", "g", "g", "g", "g"],
-    ["g", "g", "g", "g", "g", "w", "w", "w", "g", "g", "g", "g", "g"],
-    ["g", "g", "g", "g", "g", "p", "p", "p", "g", "g", "g", "g", "g"],
-    ["g", "g", "g", "s", "s", "w", "w", "w", "s", "s", "g", "g", "g"],
-    ["g", "g", "g", "s", "s", "w", "w", "w", "s", "s", "g", "g", "g"],
-    ["w", "w", "p", "w", "w", "w", "w", "w", "w", "w", "p", "w", "w"],
-    ["w", "w", "p", "w", "w", "w", "w", "w", "w", "w", "p", "w", "w"],
-    ["w", "w", "p", "w", "w", "w", "w", "w", "w", "w", "p", "w", "w"],
-    ["g", "g", "p", "s", "s", "w", "w", "w", "s", "s", "p", "g", "g"],
-    ["g", "g", "g", "s", "s", "w", "w", "w", "s", "s", "g", "g", "g"],
-    ["g", "g", "g", "g", "g", "p", "p", "p", "g", "g", "g", "g", "g"],
-    ["g", "g", "g", "g", "g", "w", "w", "w", "g", "g", "g", "g", "g"],
-    ["g", "g", "g", "g", "g", "w", "w", "w", "g", "g", "g", "g", "g"]
+    ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 'g', 'g', 'p', 'p', 'p', 'g', 'g', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
+    ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
+    ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
+    ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
+    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
+    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 'g', 'g', 'p', 'p', 'p', 'g', 'g', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g']
 ])
 
 
 TERRAIN_TYPES = {
-    's': (252, 186, 3),    # Sand - yellow
-    'p': (100, 100, 100),  # Pavement - gray
-    'g': (0, 255, 0),      # Grass - green
-    'r': (255, 255, 0),    # Respawn - yellow
-    't': (255, 0, 0),      # Target - red
-    'b': (17, 54, 4),      # Bush - dark green)
-    'w': (65, 90, 217)     # Bush - dark green)
+    's': pygame.image.load('./fa_env/env_assets/textures/sand_texture.png'),      # Sand
+    'p': pygame.image.load('./fa_env/env_assets/textures/pavement_texture.png'),  # Pavement
+    'g': pygame.image.load('./fa_env/env_assets/textures/grass_texture.png'),     # Grass - green
+    'r': pygame.image.load('./fa_env/env_assets/textures/recharge_texture.png'),  # Recharge
+    'b': pygame.image.load('./fa_env/env_assets/textures/tree_texture.png'),      # Tree
+    'w': pygame.image.load('./fa_env/env_assets/textures/water_texture.png')      # Water 
 }
+
 
 class Actions(Enum):
     right = 0
@@ -46,7 +46,7 @@ class Actions(Enum):
 # Charging station
 # Garbage
 class GridWorldEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+    metadata = {'render_modes': ['human', 'rgb_array'], 'render_fps': 4}
 
     def __init__(self, render_mode=None):
 
@@ -60,19 +60,19 @@ class GridWorldEnv(gym.Env):
         # i.e. MultiDiscrete([size, size]).
         self.observation_space = spaces.Dict(
             {
-                "agent": spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
-                "target": spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
+                'agent': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
+                'target': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
             }
         )
 
-        # We have 4 actions, corresponding to "right", "up", "left", "down", "stay"
+        # We have 4 actions, corresponding to 'right', 'up', 'left', 'down', 'stay'
         self.action_space = spaces.Discrete(5)
 
-        """
+        '''
         The following dictionary maps abstract actions from `self.action_space` to 
         the direction we will walk in if that action is taken.
-        i.e. 0 corresponds to "right", 1 to "up" etc.
-        """
+        i.e. 0 corresponds to 'right', 1 to 'up' etc.
+        '''
         self._action_to_direction = {
             Actions.right.value: np.array([1, 0]),
             Actions.up.value: np.array([0, 1]),
@@ -81,25 +81,25 @@ class GridWorldEnv(gym.Env):
             Actions.stay.value: np.array([0, 0]),
         }
 
-        assert render_mode is None or render_mode in self.metadata["render_modes"]
+        assert render_mode is None or render_mode in self.metadata['render_modes']
         self.render_mode = render_mode
 
-        """
+        '''
         If human-rendering is used, `self.window` will be a reference
         to the window that we draw to. `self.clock` will be a clock that is used
         to ensure that the environment is rendered at the correct framerate in
         human-mode. They will remain `None` until human-mode is used for the
         first time.
-        """
+        '''
         self.window = None
         self.clock = None
 
     def _get_obs(self):
-        return {"agent": self._agent_location, "garbage_disposal": self._target_location}
+        return {'agent': self._agent_location, 'garbage_disposal': self._target_location}
 
     def _get_info(self):
         return {
-            "distance": np.linalg.norm(
+            'distance': np.linalg.norm(
                 self._agent_location - self._target_location, ord=1
             )
         }
@@ -107,48 +107,36 @@ class GridWorldEnv(gym.Env):
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
-
-        # Choose the agent's location uniformly at random
-        non_zero_coords = np.argwhere(self._map_matrix != 0)
-        self._agent_location = non_zero_coords[np.random.randint(0, len(non_zero_coords))]
-
-        # We will sample the target's location randomly until it does not
-        # coincide with the agent's location
-        self._target_location = self._agent_location
-        while np.array_equal(self._target_location, self._agent_location):
-            self._target_location = non_zero_coords[np.random.randint(0, len(non_zero_coords))]
+        
         # Reset the Map
         self.map = self.base_map.copy()
         
         #Place respawn
         pavment_spaces = np.argwhere(self.map == 'p')
         space = random.choice(pavment_spaces)
-        self.map[space[0], space[1]] = 'r'
+        self.map[space[0]][space[1]] = 'r'
 
-        #Place target
-        sand_spaces = np.argwhere(self.map == 's')
-        space = random.choice(pavment_spaces)
-        self.map[space[0], space[1]] = 't'
         
         #Place bushes
         for i in range(9):
             grass_spaces = np.argwhere(self.map == 'g')
             space = random.choice(grass_spaces)
-            self.map[space[0], space[1]] = 'b'
+            self.map[space[0]][space[1]] = 'b'
 
+        # Choose the agent's location uniformly at random
+        accessible_coords = np.argwhere(self.map != 'w')
+        self._agent_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
 
-        # Respawn
-        respawn = np.argwhere(self.map == 'r')[0]
-        self._agent_location = np.array(respawn)
-
-        # Target
-        target = np.argwhere(self.map == 't')[0]
-        self._target_location = np.array(target)
+        # We will sample the target's location randomly until it does not
+        # coincide with the agent's location
+        self._target_location = self._agent_location
+        while np.array_equal(self._target_location, self._agent_location):
+            self._target_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
 
         observation = self._get_obs()
         info = self._get_info()
 
-        if self.render_mode == "human":
+        if self.render_mode == 'human':
             self._render_frame()
 
         return observation, info
@@ -156,43 +144,51 @@ class GridWorldEnv(gym.Env):
     def step(self, action):
         # Map the action (element of {0,1,2,3,4}) to the direction we walk in
         direction = self._action_to_direction[action]
-
         new_coords = self._agent_location + direction
-        if((new_coords[0] < 13 and new_coords[1] < 13) and (new_coords[0] >= 0 and new_coords[1] >= 0)):
-            self._agent_location = new_coords if self._map_matrix[new_coords[0]][new_coords[1]] == 1 else self._agent_location
 
-        # self._agent_location = np.clip(
-        #     self._agent_location + direction, 0, self.size - 1
-        # )
+        if((new_coords[0] < 13 and new_coords[1] < 13) and (new_coords[0] >= 0 and new_coords[1] >= 0) and (str(self.map[new_coords[0]][new_coords[1]]).strip() not in ['w', 'b'])):
+            self._agent_location = new_coords
+
         # An episode is done iff the agent has reached the target
         terminated = np.array_equal(self._agent_location, self._target_location)
         reward = 1 if terminated else 0  # Binary sparse rewards
         observation = self._get_obs()
         info = self._get_info()
 
-        if self.render_mode == "human":
+        if self.render_mode == 'human':
             self._render_frame()
 
         return observation, reward, terminated, False, info
 
     def render(self):
-        if self.render_mode == "rgb_array":
+        if self.render_mode == 'rgb_array':
             return self._render_frame()
         
     def _map_initialization(self, canvas, square_size):
-        for row in range(len(self._map_matrix)):
-            for col in range(len(self._map_matrix[row])):
+        for row in range(len(self.map)):
+            for col in range(len(self.map[row])):
                 rect = pygame.Rect(col*square_size, row*square_size, square_size, square_size)
+
+                # Loaded image
+                landscape = TERRAIN_TYPES[self.map[row, col]]
+                landscape = pygame.transform.scale(
+                    landscape,
+                    (square_size, square_size)
+                )
+                
+                canvas.blit(landscape, (square_size * col, square_size * row))
+            
+                rect_outline = pygame.Rect(col*square_size, row*square_size, square_size, square_size)
                 pygame.draw.rect(
                     surface=canvas,
-                    color=(0, 0, 0),
-                    rect=rect,
-                    width=1 if self._map_matrix[row][col] == 1 else 0,
+                    color=(0,0,0),
+                    rect=rect_outline,
+                    width=1
                 )
         
     # Load the agent
     def _render_agent(self, canvas, pix_square_size):
-        agent_img = pygame.image.load("./fa_env/env_assets/roomba.png")
+        agent_img = pygame.image.load('./fa_env/env_assets/roomba.png')
         agent_img = pygame.transform.scale(
             agent_img,
             (int(pix_square_size * 0.8), int(pix_square_size * 0.8))
@@ -204,7 +200,7 @@ class GridWorldEnv(gym.Env):
         canvas.blit(agent_img, rect)
     
     def _render_garbage_disposal(self, canvas, pix_square_size):
-        garbage_disposal_img = pygame.image.load("./fa_env/env_assets/trashcan.png")
+        garbage_disposal_img = pygame.image.load('./fa_env/env_assets/trashcan.png')
         garbage_disposal_img = pygame.transform.scale(
             garbage_disposal_img,
             (int(pix_square_size * 0.8), int(pix_square_size * 0.8))
@@ -216,24 +212,25 @@ class GridWorldEnv(gym.Env):
         canvas.blit(garbage_disposal_img, rect)
 
     def _render_frame(self):
-        if self.window is None and self.render_mode == "human":
+        if self.window is None and self.render_mode == 'human':
             pygame.init()
             pygame.display.init()
             self.window = pygame.display.set_mode((self.window_size, self.window_size))
-        if self.clock is None and self.render_mode == "human":
+        if self.clock is None and self.render_mode == 'human':
             self.clock = pygame.time.Clock()
 
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill((255, 255, 255))
         pix_square_size = (
-            self.window_size / len(self._map_matrix)
+            self.window_size / len(self.map)
         )  # The size of a single grid square in pixels
+
+        self._map_initialization(canvas, pix_square_size)
 
         self._render_garbage_disposal(canvas, pix_square_size)
 
         self._render_agent(canvas, pix_square_size)
 
-        self._map_initialization(canvas, pix_square_size)
         # # Finally, add some gridlines
         # for x in range(self.size + 1):
         #     pygame.draw.line(
@@ -252,38 +249,38 @@ class GridWorldEnv(gym.Env):
         #     )
 
         # Draw map
-        for i in range(self.size):
-            for j in range(self.size):
-                color = TERRAIN_TYPES[self.map[i, j]]
-                pygame.draw.rect(canvas, color, pygame.Rect(j * pix_square_size, i * pix_square_size, pix_square_size, pix_square_size))
+        # for i in range(self.size):
+        #     for j in range(self.size):
+        #         color = TERRAIN_TYPES[self.map[i, j]]
+        #         pygame.draw.rect(canvas, color, pygame.Rect(j * pix_square_size, i * pix_square_size, pix_square_size, pix_square_size))
 
 
-        # Now we draw the agent
-        pygame.draw.circle(
-            canvas,
-            (0, 0, 255),
-            (self._agent_location + 0.5) * pix_square_size,
-            pix_square_size / 3,
-        )
+        # # Now we draw the agent
+        # pygame.draw.circle(
+        #     canvas,
+        #     (0, 0, 255),
+        #     (self._agent_location + 0.5) * pix_square_size,
+        #     pix_square_size / 3,
+        # )
 
         # Finally, add some gridlines
-        for x in range(self.size + 1):
-            pygame.draw.line(
-                canvas,
-                0,
-                (0, pix_square_size * x),
-                (self.window_size, pix_square_size * x),
-                width=3,
-            )
-            pygame.draw.line(
-                canvas,
-                0,
-                (pix_square_size * x, 0),
-                (pix_square_size * x, self.window_size),
-                width=3,
-            )
+        # for x in range(self.size + 1):
+        #     pygame.draw.line(
+        #         canvas,
+        #         0,
+        #         (0, pix_square_size * x),
+        #         (self.window_size, pix_square_size * x),
+        #         width=3,
+        #     )
+        #     pygame.draw.line(
+        #         canvas,
+        #         0,
+        #         (pix_square_size * x, 0),
+        #         (pix_square_size * x, self.window_size),
+        #         width=3,
+        #     )
 
-        if self.render_mode == "human":
+        if self.render_mode == 'human':
             # The following line copies our drawings from `canvas` to the visible window
             self.window.blit(canvas, canvas.get_rect())
             pygame.event.pump()
@@ -292,7 +289,7 @@ class GridWorldEnv(gym.Env):
             # We need to ensure that human-rendering occurs at the predefined framerate.
             # The following line will automatically add a delay to
             # keep the framerate stable.
-            self.clock.tick(self.metadata["render_fps"])
+            self.clock.tick(self.metadata['render_fps'])
         else:  # rgb_array
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
