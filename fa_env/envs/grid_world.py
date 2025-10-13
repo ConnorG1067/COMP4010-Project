@@ -8,27 +8,37 @@ import random
 MAP = np.array([
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
-    ['g', 'g', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'g', 'g'],
-    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
-    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
+    ['g', 'g', 'g', 'g', 'g', 'p', 'p', 'p', 'g', 'g', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
     ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
     ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
     ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
     ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
-    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
-    ['g', 'g', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'g', 'g'],
+    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 'g', 'g', 'p', 'p', 'p', 'g', 'g', 'g', 'g', 'g'],
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g']
 ])
 
-
+"""
 TERRAIN_TYPES = {
-    #'s': pygame.image.load('./fa_env/env_assets/textures/sand_texture.png'),      # Sand
-    #'p': pygame.image.load('./fa_env/env_assets/textures/pavement_texture.png'),  # Pavement
-    #'g': pygame.image.load('./fa_env/env_assets/textures/grass_texture.png'),     # Grass - green
-    'r': pygame.image.load('./fa_env/env_assets/charge_1.png'),            # Recharge
-    'b': pygame.image.load('./fa_env/env_assets/obstacle_10.png'),                  # Tree
-    #'w': pygame.image.load('./fa_env/env_assets/textures/water_texture.png')      # Water 
+    's': pygame.image.load('./fa_env/env_assets/textures/sand_texture.png'),      # Sand
+    'p': pygame.image.load('./fa_env/env_assets/textures/pavement_texture.png'),  # Pavement
+    'g': pygame.image.load('./fa_env/env_assets/textures/grass_texture.png'),     # Grass - green
+    'r': pygame.image.load('./fa_env/env_assets/charge.png'),  # Recharge
+    'b': pygame.image.load('./fa_env/env_assets/obstacle_10.png'),      # Tree
+    'w': pygame.image.load('./fa_env/env_assets/textures/water_texture.png')      # Water 
+}
+"""
+
+OBJECT_TYPES = {
+    's': pygame.image.load('./fa_env/env_assets/nothing.png'),
+    'p': pygame.image.load('./fa_env/env_assets/nothing.png'),
+    'g': pygame.image.load('./fa_env/env_assets/nothing.png'),  
+    'r': pygame.image.load('./fa_env/env_assets/charge_1.png'),
+    'b': pygame.image.load('./fa_env/env_assets/obstacle_10.png'),  
+    'w': pygame.image.load('./fa_env/env_assets/nothing.png')
 }
 
 
@@ -118,7 +128,7 @@ class GridWorldEnv(gym.Env):
         self.map[space[0]][space[1]] = 'r'
 
         
-        #Place obstacts
+        #Place bushes
         for i in range(9):
             grass_spaces = np.argwhere(self.map == 'g')
             space = random.choice(grass_spaces)
@@ -211,7 +221,19 @@ class GridWorldEnv(gym.Env):
 
         rect = garbage_disposal_img.get_rect(center=garbage_pos)
         canvas.blit(garbage_disposal_img, rect)
+    
+    def _render_objects(self, canvas, square_size):
+        for row in range(len(self.map)):
+            for col in range(len(self.map[row])):
 
+                # Loaded image
+                landscape = OBJECT_TYPES[self.map[row, col]]
+                landscape = pygame.transform.scale(
+                    landscape,
+                    (square_size, square_size)
+                )
+                
+                canvas.blit(landscape, (square_size * col, square_size * row))
 
     def _render_frame(self):
         if self.window is None and self.render_mode == 'human':
@@ -235,6 +257,7 @@ class GridWorldEnv(gym.Env):
 
         self._render_agent(canvas, pix_square_size)
 
+        self._render_objects(canvas, pix_square_size)
 
         # # Finally, add some gridlines
         # for x in range(self.size + 1):

@@ -81,4 +81,4 @@ def run(episodes, is_training=True, render=False):
 
 # run(15000, render=False, is_training=True)
 
-run(100, render=True, is_training=True)
+run(100, render=True)
