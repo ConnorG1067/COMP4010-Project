@@ -1,0 +1,103 @@
+# Project Progress Update 1 - Oct 15
+
+#### 
+
+#### Group Member Info
+
+
+
+* Connor Gomes, 101231686, connorgomes@cmail.carleton.ca
+* Antony Ren, 101151779, antonyren@cmail.carleton.ca
+* Shawnia Noel, 101207361, shawnianoel@cmail.carleton.ca
+* Sean Xie, 101272248, seanxie@cmail.carleton.ca
+* Jackson Scott, 101194261, jacksonscott@cmail.carleton.ca
+
+
+
+#### Code Contributions 
+
+
+
+@ https://github.com/ConnorG1067/COMP4010-Project]
+
+
+
+###### Connor
+
+* Git hash: ee8b878ec981709d9a1b57d54821696990ae32e2
+* Git hash (merge with Jackson): 922e0a2a06a0cd08f8c8cd2790a3181fe62812cf
+* Git hash: eab3985c75825f052e6e5566c143fe476bb5aba5
+* Worked with Jackson to customize the environment. Prevent collisions, set up the map, implement logic of simulation, etc.
+
+
+
+###### Jackson
+
+* Git hash: e05c6676221e92fb22fe79d0b815a5594d67cf2e
+* Git hash: ee5080b6e163b082777535e2565e087884b03bcf
+* Made a custom background map image, and got objects pngs, using rpg maker
+* Worked with Connor to customize the environment, set up the map, implement logic of simulation, etc.
+
+
+
+#### Next 2 weeks
+
+
+
+* Finnish implementing collision, it works with water and border walls, but not yet with bushes/object
+* Remove invisible pngs that render for tiles without objects
+* Implement random trash placement
+* Implement battery and deterioration system
+* Implement trash pickup
+* Implement trash deposit in trash can
+* Implement terrain effects (e.g., grass and sand cause higher battery consumption or risk of getting stuck/falling)
+* Implement robot field of vision
+* Implement trash-hold limit
+
+
+
+#### Group Timeline
+
+
+
+Sunday Sept 28th -  Group Meeting
+
+* Connor explored gymnasium.farama.org
+* The group wanted to wait until a TA was assigned to project and feedback/approval from the project proposal. 
+
+
+
+Oct 6th - Group Meeting
+
+* Connor excused absence
+* TA hadn't been assigned yet, so we decided that we had to start working on environment approved proposal or not
+* Jackson found a gymnasium environment and training demo called taxi, with multiple objectives for the agent
+* Taxi Environment
+* Training Demo
+* Antony, \& Jackson reviewed taxi environment and training demo code because of its similarities to our proposal
+* Sean, \& Shawnia started writting high level documentation of the project
+
+
+
+
+
+Oct 7
+
+* Shawnia wrote a document outlining the environment in high level, namely the description, the state space, the observation space, action space, episode start and end. The style follows that from gymnasium documentation. Example; Frozen Lake
+
+
+
+Oct 8 - Group Meeting
+
+* Sean excused absence; reviewed taxi environment.
+* Connor set up demo environment, from gymnasium.farama.org
+* Connor, Shawnia, \& Jackson during liveshare coding session, lead by Connor
+* Modified and implemented previously found taxi training example from documentation.
+* Attempted the rendering and training of a simple agent reaching a target in a grid with the shortest path. 
+* Attempt wasn’t successful \[rendering was, training wasn’t] → later worked on further by Connor
+* Learning of gymnasium environment step/truncation/termination etc features through hands on implementation.
+* Experimented on the usage on pickle library to save/memorize training of an agent.
+* Further redefining of the environment in high level
+
+
+
