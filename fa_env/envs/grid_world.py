@@ -21,27 +21,12 @@ MAP = np.array([
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g']
 ])
 
-"""
-TERRAIN_TYPES = {
-    's': pygame.image.load('./fa_env/env_assets/textures/sand_texture.png'),      # Sand
-    'p': pygame.image.load('./fa_env/env_assets/textures/pavement_texture.png'),  # Pavement
-    'g': pygame.image.load('./fa_env/env_assets/textures/grass_texture.png'),     # Grass - green
-    'r': pygame.image.load('./fa_env/env_assets/charge.png'),  # Recharge
-    'b': pygame.image.load('./fa_env/env_assets/obstacle_10.png'),      # Tree
-    'w': pygame.image.load('./fa_env/env_assets/textures/water_texture.png')      # Water 
-}
-"""
-
-OBJECT_TYPES = {
-    's': pygame.image.load('./fa_env/env_assets/nothing.png'),
-    'p': pygame.image.load('./fa_env/env_assets/nothing.png'),
-    'g': pygame.image.load('./fa_env/env_assets/nothing.png'),  
-    'r': pygame.image.load('./fa_env/env_assets/charge_1.png'),
+OBJECT_ASSETS = {  
+    'c': pygame.image.load('./fa_env/env_assets/charge_1.png'),
     'b': pygame.image.load('./fa_env/env_assets/obstacle_10.png'),  
-    'w': pygame.image.load('./fa_env/env_assets/nothing.png')
+    't': pygame.image.load('./fa_env/env_assets/trashcan_1.png'),
+    'l': pygame.image.load('./fa_env/env_assets/trashcan_1.png')
 }
-
-
 
 class Actions(Enum):
     right = 0
@@ -51,11 +36,17 @@ class Actions(Enum):
     stay = 4
 
 ### GridMap Envrionment
-# Sand
-# Trees
-# Sidewalks
-# Charging station
-# Garbage
+#Terrain Types
+#p - Pavment no chance of getting stuck, movment cost from pavment is normal
+#g - Grass 0.01 chance of getting stuck, movment cost from grass is double
+#s - Sand 0.05 chance of getting stuck, movment cost from sand is triple
+#w - Water a phsical barrier that cant be interacted with similer to borders
+
+#Object types
+#c - charging station charges robots battery by x% for each step that ends on it
+#b - bush/obstacles a phsical barrier that cant be interacted with similer to borders
+#t - target/trash bin the dropoff location for litter
+#l - litter/garbage to be collected by robot
 class GridWorldEnv(gym.Env):
     metadata = {'render_modes': ['human', 'rgb_array'], 'render_fps': 4}
 
@@ -122,17 +113,19 @@ class GridWorldEnv(gym.Env):
         # Reset the Map
         self.map = self.base_map.copy()
         
-        #Place respawn
+        #Place charging station
         pavment_spaces = np.argwhere(self.map == 'p')
         space = random.choice(pavment_spaces)
-        self.map[space[0]][space[1]] = 'r'
+        self.map[space[0]][space[1]] = 'c'
 
-        
         #Place bushes
         for i in range(9):
             grass_spaces = np.argwhere(self.map == 'g')
             space = random.choice(grass_spaces)
             self.map[space[0]][space[1]] = 'b'
+
+
+        #Idea for Connor, to prevent getting trapped do as i did with bushes, but place agent only on pavment, target only on sand
 
         # Choose the agent's location uniformly at random
         accessible_coords = np.argwhere(self.map != 'w')
@@ -143,14 +136,12 @@ class GridWorldEnv(gym.Env):
         self._target_location = self._agent_location
         while np.array_equal(self._target_location, self._agent_location):
             self._target_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
-
-        observation = self._get_obs()
-        info = self._get_info()
+        self.map[self._target_location[0]][self._target_location[1]] = 't'
 
         if self.render_mode == 'human':
             self._render_frame()
 
-        return observation, info
+        return self._get_obs(), self._get_info()
 
     def step(self, action):
         # Map the action (element of {0,1,2,3,4}) to the direction we walk in
@@ -162,40 +153,17 @@ class GridWorldEnv(gym.Env):
 
         # An episode is done iff the agent has reached the target
         terminated = np.array_equal(self._agent_location, self._target_location)
-        reward = 1 if terminated else 0  # Binary sparse rewards
-        observation = self._get_obs()
-        info = self._get_info()
+        # Binary sparse rewards
+        reward = 1 if terminated else 0  
 
         if self.render_mode == 'human':
             self._render_frame()
 
-        return observation, reward, terminated, False, info
+        return self._get_obs(), reward, terminated, False, self._get_info()
 
     def render(self):
         if self.render_mode == 'rgb_array':
             return self._render_frame()
-        
-    def _map_initialization(self, canvas, square_size):
-        for row in range(len(self.map)):
-            for col in range(len(self.map[row])):
-                rect = pygame.Rect(col*square_size, row*square_size, square_size, square_size)
-
-                # Loaded image
-                landscape = TERRAIN_TYPES[self.map[row, col]]
-                landscape = pygame.transform.scale(
-                    landscape,
-                    (square_size, square_size)
-                )
-                
-                canvas.blit(landscape, (square_size * col, square_size * row))
-            
-                rect_outline = pygame.Rect(col*square_size, row*square_size, square_size, square_size)
-                pygame.draw.rect(
-                    surface=canvas,
-                    color=(0,0,0),
-                    rect=rect_outline,
-                    width=1
-                )
         
     # Load the agent
     def _render_agent(self, canvas, pix_square_size):
@@ -210,103 +178,47 @@ class GridWorldEnv(gym.Env):
         
         canvas.blit(agent_img, rect)
     
-    def _render_garbage_disposal(self, canvas, pix_square_size):
-        garbage_disposal_img = pygame.image.load('./fa_env/env_assets/trashcan_1.png')
-        garbage_disposal_img = pygame.transform.scale(
-            garbage_disposal_img,
-            (int(pix_square_size * 0.8), int(pix_square_size * 0.8))
-        )
-
-        garbage_pos = (self._target_location + 0.5) * pix_square_size
-
-        rect = garbage_disposal_img.get_rect(center=garbage_pos)
-        canvas.blit(garbage_disposal_img, rect)
-    
     def _render_objects(self, canvas, square_size):
-        for row in range(len(self.map)):
-            for col in range(len(self.map[row])):
+        object_spaces = np.argwhere(np.isin(self.map, ['c', 'b','t','l']))
 
-                # Loaded image
-                landscape = OBJECT_TYPES[self.map[row, col]]
+        for row, col in object_spaces:
+            object_type = self.map[row][col]
+            if object_type in OBJECT_ASSETS:
                 landscape = pygame.transform.scale(
-                    landscape,
+                    OBJECT_ASSETS[object_type],
                     (square_size, square_size)
                 )
-                
                 canvas.blit(landscape, (square_size * col, square_size * row))
 
     def _render_frame(self):
+        
         if self.window is None and self.render_mode == 'human':
             pygame.init()
             pygame.display.init()
             pygame.display.set_caption('Cleaning Robot - Demo')
             self.window = pygame.display.set_mode((self.window_size, self.window_size))
+        
+        #Setup Clock
         if self.clock is None and self.render_mode == 'human':
             self.clock = pygame.time.Clock()
 
+        #Setup Pygame window
         canvas = pygame.Surface((self.window_size, self.window_size))
         background = pygame.image.load('./fa_env/env_assets/map_1.png')
         canvas.blit(background, (0, 0))
-        pix_square_size = (
-            self.window_size / len(self.map)
-        )  # The size of a single grid square in pixels
+
+        # The size of a single grid square in pixels
+        pix_square_size = ( self.window_size / len(self.map))  
 
         #self._map_initialization(canvas, pix_square_size)
 
-        self._render_garbage_disposal(canvas, pix_square_size)
+        #self._render_garbage_disposal(canvas, pix_square_size)
 
         self._render_agent(canvas, pix_square_size)
 
         self._render_objects(canvas, pix_square_size)
 
-        # # Finally, add some gridlines
-        # for x in range(self.size + 1):
-        #     pygame.draw.line(
-        #         canvas,
-        #         0,
-        #         (0, pix_square_size * x),
-        #         (self.window_size, pix_square_size * x),
-        #         width=3,
-        #     )
-        #     pygame.draw.line(
-        #         canvas,
-        #         0,
-        #         (pix_square_size * x, 0),
-        #         (pix_square_size * x, self.window_size),
-        #         width=3,
-        #     )
-
-        # Draw map
-        # for i in range(self.size):
-        #     for j in range(self.size):
-        #         color = TERRAIN_TYPES[self.map[i, j]]
-        #         pygame.draw.rect(canvas, color, pygame.Rect(j * pix_square_size, i * pix_square_size, pix_square_size, pix_square_size))
-
-
-        # # Now we draw the agent
-        # pygame.draw.circle(
-        #     canvas,
-        #     (0, 0, 255),
-        #     (self._agent_location + 0.5) * pix_square_size,
-        #     pix_square_size / 3,
-        # )
-
-        # Finally, add some gridlines
-        # for x in range(self.size + 1):
-        #     pygame.draw.line(
-        #         canvas,
-        #         0,
-        #         (0, pix_square_size * x),
-        #         (self.window_size, pix_square_size * x),
-        #         width=3,
-        #     )
-        #     pygame.draw.line(
-        #         canvas,
-        #         0,
-        #         (pix_square_size * x, 0),
-        #         (pix_square_size * x, self.window_size),
-        #         width=3,
-        #     )
+    
 
         if self.render_mode == 'human':
             # The following line copies our drawings from `canvas` to the visible window
