@@ -37,7 +37,7 @@ class Actions(Enum):
 
 ### GridMap Envrionment
 #Terrain Types
-#p - Pavment no chance of getting stuck, movment cost from pavment is normal
+#p - pavement no chance of getting stuck, movment cost from pavement is normal
 #g - Grass 0.01 chance of getting stuck, movment cost from grass is double
 #s - Sand 0.05 chance of getting stuck, movment cost from sand is triple
 #w - Water a phsical barrier that cant be interacted with similer to borders
@@ -51,7 +51,6 @@ class GridWorldEnv(gym.Env):
     metadata = {'render_modes': ['human', 'rgb_array'], 'render_fps': 4}
 
     def __init__(self, render_mode=None):
-
         self.base_map = np.array([list(row) for row in MAP])
         self.map = self.base_map.copy()
         self.size = len(MAP)
@@ -110,12 +109,15 @@ class GridWorldEnv(gym.Env):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
         
-        # Reset the Map
+        #Reset the Map
         self.map = self.base_map.copy()
-        
+
+        #Reset the Battery
+        self._agent_Battery = 100.00
+
         #Place charging station
-        pavment_spaces = np.argwhere(self.map == 'p')
-        space = random.choice(pavment_spaces)
+        pavement_spaces = np.argwhere(self.map == 'p')
+        space = random.choice(pavement_spaces)
         self.map[space[0]][space[1]] = 'c'
 
         #Place bushes
@@ -125,7 +127,7 @@ class GridWorldEnv(gym.Env):
             self.map[space[0]][space[1]] = 'b'
 
 
-        #Idea for Connor, to prevent getting trapped do as i did with bushes, but place agent only on pavment, target only on sand
+        #Idea for Connor, to prevent getting trapped do as i did with bushes, but place agent only on pavement, target only on sand
 
         # Choose the agent's location uniformly at random
         accessible_coords = np.argwhere(self.map != 'w')
@@ -136,7 +138,7 @@ class GridWorldEnv(gym.Env):
         self._target_location = self._agent_location
         while np.array_equal(self._target_location, self._agent_location):
             self._target_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
-        self.map[self._target_location[0]][self._target_location[1]] = 't'
+        self.map[self._target_location[1]][self._target_location[0]] = 't'
 
         if self.render_mode == 'human':
             self._render_frame()
@@ -144,28 +146,63 @@ class GridWorldEnv(gym.Env):
         return self._get_obs(), self._get_info()
 
     def step(self, action):
+        #base variables
+        terminated = False
+        reward = 0  
+        
         # Map the action (element of {0,1,2,3,4}) to the direction we walk in
         direction = self._action_to_direction[action]
+        old_coords = self._agent_location
         new_coords = self._agent_location + direction
 
+        #Collision
         if((new_coords[0] < 13 and new_coords[1] < 13) and (new_coords[0] >= 0 and new_coords[1] >= 0) and (str(self.map[new_coords[0]][new_coords[1]]).strip() not in ['w', 'b'])):
             self._agent_location = new_coords
 
-        # An episode is done iff the agent has reached the target
-        terminated = np.array_equal(self._agent_location, self._target_location)
-        # Binary sparse rewards
-        reward = 1 if terminated else 0  
+        #Pick up trash
 
+        #Drop off trash
+
+        #Terrain effcts and battery decay
+        movement_cost = 0.2
+        tile_type = self.map[old_coords[0]][old_coords[1]]
+        random_number = random.random() #random float between 0 and 1
+
+        if tile_type == 'g':
+            if(random_number < 0.01):
+                terminated = True
+                print("Stuck in grass")
+            self._agent_Battery-=movement_cost*2
+        elif tile_type == 's':
+            if(random_number < 0.05):
+                terminated = True
+                print("Stuck in sand")
+            self._agent_Battery-=movement_cost*3
+        else:
+            self._agent_Battery-=movement_cost
+
+        #Target reached
+        if(np.array_equal(self._agent_location, self._target_location)):
+            terminated = True
+            reward = 1
+            print("Target reached")
+        #Battery died
+        elif(self._agent_Battery<=0):
+            terminated = True
+            print("battery died")
+
+        #Render pygame
         if self.render_mode == 'human':
             self._render_frame()
 
         return self._get_obs(), reward, terminated, False, self._get_info()
 
+
     def render(self):
         if self.render_mode == 'rgb_array':
             return self._render_frame()
         
-    # Load the agent
+    #Render Agent
     def _render_agent(self, canvas, pix_square_size):
         agent_img = pygame.image.load('./fa_env/env_assets/robot_down.png')
         agent_img = pygame.transform.scale(
@@ -178,6 +215,7 @@ class GridWorldEnv(gym.Env):
         
         canvas.blit(agent_img, rect)
     
+    #Render Objects
     def _render_objects(self, canvas, square_size):
         object_spaces = np.argwhere(np.isin(self.map, ['c', 'b','t','l']))
 
@@ -190,8 +228,13 @@ class GridWorldEnv(gym.Env):
                 )
                 canvas.blit(landscape, (square_size * col, square_size * row))
 
+    #Render battery display
+    def _reder_battery(self, canvas):
+        font = pygame.font.SysFont(None, 24)
+        battery_text = font.render(f"Battery: {self._agent_Battery:.2f}%", True, (255,0,0))
+        canvas.blit(battery_text, (5,5))
+
     def _render_frame(self):
-        
         if self.window is None and self.render_mode == 'human':
             pygame.init()
             pygame.display.init()
@@ -210,15 +253,11 @@ class GridWorldEnv(gym.Env):
         # The size of a single grid square in pixels
         pix_square_size = ( self.window_size / len(self.map))  
 
-        #self._map_initialization(canvas, pix_square_size)
-
-        #self._render_garbage_disposal(canvas, pix_square_size)
+        self._render_objects(canvas, pix_square_size)
 
         self._render_agent(canvas, pix_square_size)
 
-        self._render_objects(canvas, pix_square_size)
-
-    
+        self._reder_battery(canvas)
 
         if self.render_mode == 'human':
             # The following line copies our drawings from `canvas` to the visible window
