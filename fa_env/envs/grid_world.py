@@ -126,7 +126,6 @@ class GridWorldEnv(gym.Env):
             space = random.choice(grass_spaces)
             self.map[space[0]][space[1]] = 'b'
 
-
         #Idea for Connor, to prevent getting trapped do as i did with bushes, but place agent only on pavement, target only on sand
 
         # Choose the agent's location uniformly at random
@@ -156,7 +155,9 @@ class GridWorldEnv(gym.Env):
         new_coords = self._agent_location + direction
 
         #Collision
-        if((new_coords[0] < 13 and new_coords[1] < 13) and (new_coords[0] >= 0 and new_coords[1] >= 0) and (str(self.map[new_coords[0]][new_coords[1]]).strip() not in ['w', 'b'])):
+        print(old_coords)
+
+        if((new_coords[0] < 13 and new_coords[1] < 13) and (new_coords[0] >= 0 and new_coords[1] >= 0) and (str(self.map[new_coords[1]][new_coords[0]]).strip() not in ['w', 'b'])):
             self._agent_location = new_coords
 
         #Pick up trash
