@@ -229,7 +229,7 @@ class GridWorldEnv(gym.Env):
                 canvas.blit(landscape, (square_size * col, square_size * row))
 
     #Render battery display
-    def _reder_battery(self, canvas):
+    def _render_battery(self, canvas):
         font = pygame.font.SysFont(None, 24)
         battery_text = font.render(f"Battery: {self._agent_Battery:.2f}%", True, (255,0,0))
         canvas.blit(battery_text, (5,5))
@@ -257,7 +257,7 @@ class GridWorldEnv(gym.Env):
 
         self._render_agent(canvas, pix_square_size)
 
-        self._reder_battery(canvas)
+        self._render_battery(canvas)
 
         if self.render_mode == 'human':
             # The following line copies our drawings from `canvas` to the visible window
