@@ -204,7 +204,7 @@ class GridWorldEnv(gym.Env):
         
     #Render Agent
     def _render_agent(self, canvas, pix_square_size):
-        agent_img = pygame.image.load('./fa_env/env_assets/robot_down.png')
+        agent_img = pygame.image.load('./fa_env/env_assets/roomba.png')
         agent_img = pygame.transform.scale(
             agent_img,
             (int(pix_square_size * 0.8), int(pix_square_size * 0.8))
