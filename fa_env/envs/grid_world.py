@@ -155,7 +155,7 @@ class GridWorldEnv(gym.Env):
         new_coords = self._agent_location + direction
 
         #Collision
-        print(old_coords)
+        #print(old_coords)
 
         if((new_coords[0] < 13 and new_coords[1] < 13) and (new_coords[0] >= 0 and new_coords[1] >= 0) and (str(self.map[new_coords[1]][new_coords[0]]).strip() not in ['w', 'b'])):
             self._agent_location = new_coords
@@ -164,32 +164,45 @@ class GridWorldEnv(gym.Env):
 
         #Drop off trash
 
-        #Terrain effcts and battery decay
-        movement_cost = 0.2
+        #Terrain effcts and battery decay, robot is effected by predvous tile
         tile_type = self.map[old_coords[0]][old_coords[1]]
         random_number = random.random() #random float between 0 and 1
+        print(old_coords)
 
-        if tile_type == 'g':
-            if(random_number < 0.01):
-                terminated = True
-                print("Stuck in grass")
-            self._agent_Battery-=movement_cost*2
-        elif tile_type == 's':
-            if(random_number < 0.05):
-                terminated = True
-                print("Stuck in sand")
-            self._agent_Battery-=movement_cost*3
-        else:
-            self._agent_Battery-=movement_cost
+        #Base battery useage
+        self._agent_Battery-= 0.05
+        if action != 4:
+            movement_cost = 0.2 
+            if tile_type == 'g':
+                if(random_number < 0.01):
+                    terminated = True
+                    rewards -= 1
+                    print("Stuck in grass")
+                self._agent_Battery-=movement_cost*2
+            elif tile_type == 's':
+                if(random_number < 0.05):
+                    terminated = True
+                    rewards -= 1
+                    print("Stuck in sand")
+                self._agent_Battery-=movement_cost*3
+            else:
+                self._agent_Battery-=movement_cost
+        
+        #Recharge battery
+        if tile_type == 'c':
+            self._agent_Battery+=5
+            rewards += 0.01
+            print("Charging")
 
         #Target reached
         if(np.array_equal(self._agent_location, self._target_location)):
             terminated = True
-            reward = 1
+            rewards += 1
             print("Target reached")
         #Battery died
         elif(self._agent_Battery<=0):
             terminated = True
+            rewards -= 1
             print("battery died")
 
         #Render pygame
@@ -199,9 +212,10 @@ class GridWorldEnv(gym.Env):
         return self._get_obs(), reward, terminated, False, self._get_info()
 
 
-    def render(self):
-        if self.render_mode == 'rgb_array':
-            return self._render_frame()
+    #Doesnt do anything?
+    #def render(self):
+    #    if self.render_mode == 'rgb_array':
+    #       return self._render_frame()
         
     #Render Agent
     def _render_agent(self, canvas, pix_square_size):
@@ -236,6 +250,7 @@ class GridWorldEnv(gym.Env):
         canvas.blit(battery_text, (5,5))
 
     def _render_frame(self):
+        #we can remove self.render_mode == 'human',render_frame is only called when render_mode=='human'
         if self.window is None and self.render_mode == 'human':
             pygame.init()
             pygame.display.init()
