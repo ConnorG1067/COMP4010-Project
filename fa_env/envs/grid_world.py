@@ -8,15 +8,15 @@ import random
 MAP = np.array([
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
-    ['g', 'g', 'g', 'g', 'g', 'p', 'p', 'p', 'g', 'g', 'g', 'g', 'g'],
-    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
-    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
+    ['g', 'g', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'g', 'g'],
+    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
+    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
     ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
     ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
     ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
     ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
-    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
-    ['g', 'g', 'g', 'g', 'g', 'p', 'p', 'p', 'g', 'g', 'g', 'g', 'g'],
+    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
+    ['g', 'g', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'g', 'g'],
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g']
 ])
@@ -25,7 +25,11 @@ OBJECT_ASSETS = {
     'c': pygame.image.load('./fa_env/env_assets/charge_1.png'),
     'b': pygame.image.load('./fa_env/env_assets/obstacle_10.png'),  
     't': pygame.image.load('./fa_env/env_assets/trashcan_1.png'),
-    'l': pygame.image.load('./fa_env/env_assets/trashcan_1.png')
+    'l': pygame.image.load('./fa_env/env_assets/garbage.png')
+}
+
+MISC_ASSETS = {
+    'garbage' : pygame.image.load("./fa_env/env_assets/garbage.png"),
 }
 
 class Actions(Enum):
@@ -118,18 +122,18 @@ class GridWorldEnv(gym.Env):
         #Place charging station
         pavement_spaces = np.argwhere(self.map == 'p')
         space = random.choice(pavement_spaces)
-        self.map[space[0]][space[1]] = 'c'
+        self.map[space[1]][space[0]] = 'c'
 
         #Place bushes
         for i in range(9):
             grass_spaces = np.argwhere(self.map == 'g')
             space = random.choice(grass_spaces)
-            self.map[space[0]][space[1]] = 'b'
+            self.map[space[1]][space[0]] = 'b'
 
         #Idea for Connor, to prevent getting trapped do as i did with bushes, but place agent only on pavement, target only on sand
 
         # Choose the agent's location uniformly at random
-        accessible_coords = np.argwhere(self.map != 'w')
+        accessible_coords = np.argwhere((self.map != 'w') | (self.map != 'b'))
         self._agent_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
 
         # We will sample the target's location randomly until it does not
@@ -138,6 +142,10 @@ class GridWorldEnv(gym.Env):
         while np.array_equal(self._target_location, self._agent_location):
             self._target_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
         self.map[self._target_location[1]][self._target_location[0]] = 't'
+
+        # Set garbage in numpy map
+        for coord in self._get_garbage_coords():
+            self.map[coord[1]][coord[0]] = 'l'
 
         if self.render_mode == 'human':
             self._render_frame()
@@ -288,6 +296,20 @@ class GridWorldEnv(gym.Env):
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
+    def _get_garbage_coords(self):
+        garb_coords = np.argwhere((self.map == 'g') | (self.map == 's') | (self.map == 'p'))
+        return [garb_coords[index] for index in (np.random.choice(len(garb_coords), 3, replace=False))]
+
+    # def _render_garbage(self, canvas, pix_square_size):
+        # garbage_img = pygame.transform.scale(
+        #     MISC_ASSETS['garbage'],
+        #     (int(pix_square_size * 0.8), int(pix_square_size * 0.8))
+        # )
+
+        # for coord in random_garb_coords:
+        #     rect = garbage_img.get_rect(center=coord)
+        
+            # canvas.blit(garbage_img, rect)
 
     def close(self):
         if self.window is not None:
