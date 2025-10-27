@@ -132,23 +132,29 @@ class GridWorldEnv(gym.Env):
 
         #Idea for Connor, to prevent getting trapped do as i did with bushes, but place agent only on pavement, target only on sand
 
-        # Choose the agent's location uniformly at random
-        accessible_coords = np.argwhere((self.map != 'w') | (self.map != 'b'))
-        self._agent_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
-
         # We will sample the target's location randomly until it does not
         # coincide with the agent's location
-        self._target_location = self._agent_location
-        while np.array_equal(self._target_location, self._agent_location):
-            self._target_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
-        self.map[self._target_location[1]][self._target_location[0]] = 't'
-
+        accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['g','s','p']))
         # Set garbage in numpy map
-        for coord in self._get_garbage_coords():
-            self.map[coord[1]][coord[0]] = 'l'
+        random_garb_coords = [accessible_coords[index] for index in (np.random.choice(len(accessible_coords), 3, replace=False))]
+        accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['g','s','p', 'l']))
+        
+        for coord in random_garb_coords: self.map[coord[1]][coord[0]] = 'l'
+
+        # Choose the agent's location uniformly at random
+        self._agent_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
+        accessible_coords = accessible_coords[~np.all(accessible_coords == self._agent_location, axis=1)]
+        # self._target_location = self._agent_location
+        # while np.array_equal(self._target_location, self._agent_location):
+        self._target_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
+        accessible_coords = accessible_coords[accessible_coords != self._target_location]
+
+        
+        self.map[self._target_location[1]][self._target_location[0]] = 't'
 
         if self.render_mode == 'human':
             self._render_frame()
+        
 
         return self._get_obs(), self._get_info()
 
@@ -296,9 +302,6 @@ class GridWorldEnv(gym.Env):
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
-    def _get_garbage_coords(self):
-        garb_coords = np.argwhere((self.map == 'g') | (self.map == 's') | (self.map == 'p'))
-        return [garb_coords[index] for index in (np.random.choice(len(garb_coords), 3, replace=False))]
 
     # def _render_garbage(self, canvas, pix_square_size):
         # garbage_img = pygame.transform.scale(
