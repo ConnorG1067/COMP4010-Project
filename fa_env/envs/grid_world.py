@@ -6,8 +6,8 @@ import numpy as np
 import random
 
 MAP = np.array([
-    ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
-    ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g'],
+    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
+    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
     ['g', 'g', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'g', 'g'],
     ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
     ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
@@ -37,7 +37,9 @@ class Actions(Enum):
     up = 1
     left = 2
     down = 3
-    stay = 4
+    stay = 4  # wait/recharge
+    pick_up = 5
+    drop_off = 6
 
 ### GridMap Envrionment
 #Terrain Types
@@ -119,6 +121,13 @@ class GridWorldEnv(gym.Env):
         #Reset the Battery
         self._agent_Battery = 100.00
 
+        #Reset held garbage
+        self._agent_held_garbage = 0
+        self._agent_max_held_garbage = 3
+
+        self.env_base_garbage_count = random.randint(3, 6)
+        self.env_garbage_count = self.env_base_garbage_count
+
         #Place charging station
         pavement_spaces = np.argwhere(self.map == 'p')
         space = random.choice(pavement_spaces)
@@ -135,23 +144,24 @@ class GridWorldEnv(gym.Env):
         # We will sample the target's location randomly until it does not
         # coincide with the agent's location
         accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['g','s','p']))
-        # Set garbage in numpy map
-        random_garb_coords = [accessible_coords[index] for index in (np.random.choice(len(accessible_coords), 3, replace=False))]
-        accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['g','s','p', 'l']))
         
+        # Find garbage location
+        random_garb_coords = [accessible_coords[index] for index in (np.random.choice(len(accessible_coords), self.env_base_garbage_count, replace=False))]
         for coord in random_garb_coords: self.map[coord[1]][coord[0]] = 'l'
+        accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['g','s','p']))
+        
 
-        # Choose the agent's location uniformly at random
+        # Choose the agent's location uniformly at random (Roomba)
         self._agent_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
+        # Explaination 
         accessible_coords = accessible_coords[~np.all(accessible_coords == self._agent_location, axis=1)]
-        # self._target_location = self._agent_location
-        # while np.array_equal(self._target_location, self._agent_location):
-        self._target_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
-        accessible_coords = accessible_coords[accessible_coords != self._target_location]
+        
+        # Choose target location (Garbage bin)
+        self._target_location = accessible_coords[np.random.randint(0, len(accessible_coords))]        
+        self.map[self._target_location[1]][self._target_location[0]] = 't'
+        accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['g','s','p']))
 
         
-        self.map[self._target_location[1]][self._target_location[0]] = 't'
-
         if self.render_mode == 'human':
             self._render_frame()
         
@@ -168,44 +178,64 @@ class GridWorldEnv(gym.Env):
         old_coords = self._agent_location
         new_coords = self._agent_location + direction
 
-        #Collision
-        #print(old_coords)
-
         if((new_coords[0] < 13 and new_coords[1] < 13) and (new_coords[0] >= 0 and new_coords[1] >= 0) and (str(self.map[new_coords[1]][new_coords[0]]).strip() not in ['w', 'b'])):
             self._agent_location = new_coords
 
-        #Pick up trash
-
-        #Drop off trash
-
         #Terrain effcts and battery decay, robot is effected by predvous tile
         tile_type = self.map[old_coords[1]][old_coords[0]]
+        print(tile_type)
         random_number = random.random() #random float between 0 and 1
 
         #Base battery useage
         self._agent_Battery-= 0.05
-        if action != 4:
+        if action < 4:      #Movement
             movement_cost = 0.2 
             if tile_type == 'g':
                 if(random_number < 0.01):
                     terminated = True
-                    reward -= 1
+                    reward -= 0.5
                     print("Stuck in grass")
                 self._agent_Battery-=movement_cost*2
             elif tile_type == 's':
                 if(random_number < 0.05):
                     terminated = True
-                    reward -= 1
+                    reward -= 0.5
                     print("Stuck in sand")
                 self._agent_Battery-=movement_cost*3
             else:
                 self._agent_Battery-=movement_cost
+
+        elif action == 4:       #Recharge battery
+            if tile_type == 'c':
+                self._agent_Battery+=5
+                if self._agent_Battery < 80:
+                    reward += 0.05
+                else:
+                    reward += 0.01
+                print("Charging")
+
+        elif action == 5:       #Pick up litter
+            if tile_type == 'l' & (self._agent_held_garbage<self._agent_max_held_garbage):
+                reward += 0.2
+                self._agent_held_garbage+=1
+                self.env_garbage_count-=1
+                print("Picked up litter")
+            else:
+                reward -= 0.05
+                print("Nothing to Picked up")
+            self._agent_Battery-=0.1
+
+        elif action == 6:       #Drop off litter
+            if tile_type == 't' & self._agent_held_garbage>0:
+                reward += 0.5*self._agent_held_garbage
+                self._agent_held_garbage=0
+                print("drop off litter")
+            else:
+                reward -= 0.05
+                print("Nothing to drop off")
+            self._agent_Battery-=0.1
         
-        #Recharge battery
-        if tile_type == 'c':
-            self._agent_Battery+=5
-            reward += 0.01
-            print("Charging")
+        
 
         #Target reached
         if(np.array_equal(self._agent_location, self._target_location)):
@@ -217,6 +247,11 @@ class GridWorldEnv(gym.Env):
             terminated = True
             reward -= 1
             print("battery died")
+        elif(self.env_garbage_count==0 & self._agent_held_garbage == 0):
+            terminated = True
+            reward += 1
+            print("Map cleared")
+
 
         #Render pygame
         if self.render_mode == 'human':
