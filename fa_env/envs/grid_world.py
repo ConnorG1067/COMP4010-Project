@@ -72,8 +72,8 @@ class GridWorldEnv(gym.Env):
             }
         )
 
-        # We have 4 actions, corresponding to 'right', 'up', 'left', 'down', 'stay'
-        self.action_space = spaces.Discrete(5)
+        # We have 7 actions, corresponding to 'right', 'up', 'left', 'down', 'stay','pick up',and 'drop off'
+        self.action_space = spaces.Discrete(7)
 
         '''
         The following dictionary maps abstract actions from `self.action_space` to 
@@ -86,6 +86,8 @@ class GridWorldEnv(gym.Env):
             Actions.left.value: np.array([-1, 0]),
             Actions.down.value: np.array([0, -1]),
             Actions.stay.value: np.array([0, 0]),
+            Actions.pick_up.value: np.array([0, 0]),
+            Actions.drop_off.value: np.array([0, 0])
         }
 
         assert render_mode is None or render_mode in self.metadata['render_modes']
@@ -215,10 +217,11 @@ class GridWorldEnv(gym.Env):
                 print("Charging")
 
         elif action == 5:       #Pick up litter
-            if tile_type == 'l' & (self._agent_held_garbage<self._agent_max_held_garbage):
+            if tile_type == 'l' and (self._agent_held_garbage<self._agent_max_held_garbage):
                 reward += 0.2
                 self._agent_held_garbage+=1
                 self.env_garbage_count-=1
+                self.map[old_coords[1]][old_coords[0]] = self.base_map[old_coords[1]][old_coords[0]]
                 print("Picked up litter")
             else:
                 reward -= 0.05
@@ -226,33 +229,31 @@ class GridWorldEnv(gym.Env):
             self._agent_Battery-=0.1
 
         elif action == 6:       #Drop off litter
-            if tile_type == 't' & self._agent_held_garbage>0:
+            if tile_type == 't' and self._agent_held_garbage>0:
                 reward += 0.5*self._agent_held_garbage
                 self._agent_held_garbage=0
                 print("drop off litter")
             else:
                 reward -= 0.05
-                print("Nothing to drop off")
+                print("Cant drop off not at trashcan") if tile_type == 't' else None
+                print("nothing to drop off") if self._agent_held_garbage == 0 else None
+                
             self._agent_Battery-=0.1
         
-        
 
-        #Target reached
-        if(np.array_equal(self._agent_location, self._target_location)):
+
+        #Map cleared
+        if(self.env_garbage_count==0 & self._agent_held_garbage == 0):
             terminated = True
             reward += 1
-            print("Target reached")
+            print("Map cleared")
+        
         #Battery died
         elif(self._agent_Battery<=0):
             terminated = True
             reward -= 1
             print("battery died")
-        elif(self.env_garbage_count==0 & self._agent_held_garbage == 0):
-            terminated = True
-            reward += 1
-            print("Map cleared")
-
-
+        
         #Render pygame
         if self.render_mode == 'human':
             self._render_frame()
