@@ -33,7 +33,9 @@ class Actions(Enum):
     up = 1
     left = 2
     down = 3
-    stay = 4
+    stay = 4  #wait/recharge
+    pick_up = 5
+    drop_off = 6
 
 ### GridMap Envrionment
 #Terrain Types
@@ -115,6 +117,13 @@ class GridWorldEnv(gym.Env):
         #Reset the Battery
         self._agent_Battery = 100.00
 
+        #Reset held garbage
+        self._agent_held_garbage = 0
+        self._agent_max_held_garbage = 3
+
+        self.env_base_garbage_count = random.randint(3, 6)
+        self.env_garbage_count = self.env_base_garbage_count
+
         #Place charging station
         pavement_spaces = np.argwhere(self.map == 'p')
         space = random.choice(pavement_spaces)
@@ -171,28 +180,54 @@ class GridWorldEnv(gym.Env):
 
         #Base battery useage
         self._agent_Battery-= 0.05
-        if action != 4:
+        if action < 4:      #Movement
             movement_cost = 0.2 
             if tile_type == 'g':
                 if(random_number < 0.01):
                     terminated = True
-                    rewards -= 1
+                    rewards -= 0.5
                     print("Stuck in grass")
                 self._agent_Battery-=movement_cost*2
             elif tile_type == 's':
                 if(random_number < 0.05):
                     terminated = True
-                    rewards -= 1
+                    rewards -= 0.5
                     print("Stuck in sand")
                 self._agent_Battery-=movement_cost*3
             else:
                 self._agent_Battery-=movement_cost
+
+        elif action == 4:       #Recharge battery
+            if tile_type == 'c':
+                self._agent_Battery+=5
+                if self._agent_Battery < 80:
+                    rewards += 0.05
+                else:
+                    rewards += 0.01
+                print("Charging")
+
+        elif action == 5:       #Pick up litter
+            if tile_type == 'l' & (self._agent_held_garbage<self._agent_max_held_garbage):
+                rewards += 0.2
+                self._agent_held_garbage+=1
+                self.env_garbage_count-=1
+                print("Picked up litter")
+            else:
+                rewards -= 0.05
+                print("Nothing to Picked up")
+            self._agent_Battery-=0.1
+
+        elif action == 6:       #Drop off litter
+            if tile_type == 't' & self._agent_held_garbage>0:
+                rewards += 0.5*self._agent_held_garbage
+                self._agent_held_garbage=0
+                print("drop off litter")
+            else:
+                rewards -= 0.05
+                print("Nothing to drop off")
+            self._agent_Battery-=0.1
         
-        #Recharge battery
-        if tile_type == 'c':
-            self._agent_Battery+=5
-            rewards += 0.01
-            print("Charging")
+        
 
         #Target reached
         if(np.array_equal(self._agent_location, self._target_location)):
@@ -204,6 +239,11 @@ class GridWorldEnv(gym.Env):
             terminated = True
             rewards -= 1
             print("battery died")
+        elif(self.env_garbage_count==0 & self._agent_held_garbage == 0):
+            terminated = True
+            rewards += 1
+            print("Map cleared")
+
 
         #Render pygame
         if self.render_mode == 'human':
