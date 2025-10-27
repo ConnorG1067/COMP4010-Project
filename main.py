@@ -38,7 +38,7 @@ def run(episodes, is_training=True, render=False):
                 # If random number less than epsilon sample the action space uniformly
                 action = env.action_space.sample()
             else:
-                action = np.argmax(q[convert_action_to_int(state['agent']), :])
+                action = np.argmax(q[convert_action_to_int(state['agent_pos']), :])
                 # print(q[convert_action_to_int(state['agent']), :])
                 # print(action)
                 # print()
@@ -49,8 +49,8 @@ def run(episodes, is_training=True, render=False):
             rewards += reward
 
             if(is_training):
-                state_as_int = convert_action_to_int(state['agent'])
-                new_state_as_int = convert_action_to_int(new_state['agent'])
+                state_as_int = convert_action_to_int(state['agent_pos'])
+                new_state_as_int = convert_action_to_int(new_state['agent_pos'])
                 # Q(s, a) ← Q(s, a) + α * [r + γ * max(Q(s', ·)) - Q(s, a)]
                 q[state_as_int, action] = q[state_as_int, action] + learning_rate_a * (reward + (discount_factor * np.argmax(q[new_state_as_int, :])) - q[state_as_int, action])
             

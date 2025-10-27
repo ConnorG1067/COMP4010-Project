@@ -64,17 +64,28 @@ class GridWorldEnv(gym.Env):
         self.map = self.base_map.copy()
         self.size = len(MAP)
         self.window_size = 416  # The size of the PyGame window
+        
+
         self.iteration_count = 0
+        self._agent_Battery = 100.00
+        self._agent_held_garbage = 0
+        self._agent_max_held_garbage = 3
+        self._trash_known_positions = []
+        self._charging_station_position = None
+        self._trash_bin_position = None
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
         # i.e. MultiDiscrete([size, size]).
-        self.observation_space = spaces.Dict(
-            {
-                'agent': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
-                'target': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
-            }
-        )
+        self.observation_space = spaces.Dict({
+            'agent_pos': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
+            'agent_battery': spaces.Box(0, 100, shape=(), dtype=float),
+            'agent_trashload': spaces.Discrete(4),
+            'current_terrain_type': spaces.Discrete(4),
+            'envrionment_trash_amount': spaces.Discrete(10),
+            'charging_station_position': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
+            'trash_bin_position': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
+        })
 
         # We have 7 actions, corresponding to 'right', 'up', 'left', 'down', 'stay','pick up',and 'drop off'
         self.action_space = spaces.Discrete(7)
@@ -108,7 +119,16 @@ class GridWorldEnv(gym.Env):
         self.clock = None
 
     def _get_obs(self):
-        return {'agent': self._agent_location, 'garbage_disposal': self._target_location}
+        return {
+            'agent_pos': self._agent_location, 
+            'agent_battery' : self._agent_Battery,
+            'current_terrain_type' : self.map[self._agent_location[1]][self._agent_location[0]],
+            'agent_trashload' : self._agent_held_garbage,
+            'envrionment_trash_amount' : self._env_garbage_count,
+            'trash_position' : self._trash_known_positions,
+            'charging_station_position' : self._charging_station_position,
+            'trash_bin_position' : self. _trash_bin_position
+        }
 
     def _get_info(self):
         return {
@@ -124,17 +144,14 @@ class GridWorldEnv(gym.Env):
         #Reset the Map
         self.map = self.base_map.copy()
 
-        #Reset the Battery
+        # Reset variables
         self._agent_Battery = 100.00
-
-        #Reset held garbage
-        self._agent_held_garbage = 0
-        self._agent_max_held_garbage = 3
-
         self.iteration_count = 0
+        self._agent_held_garbage = 0
 
+        # Pick a number of garbage pieces
         self.env_base_garbage_count = random.randint(3, 6)
-        self.env_garbage_count = self.env_base_garbage_count
+        self._env_garbage_count = self.env_base_garbage_count
 
         #Place charging station
         charging_space = random.choice(np.argwhere(np.isin(self.map, ['p'])))
@@ -230,7 +247,7 @@ class GridWorldEnv(gym.Env):
             if tile_type == 'l' and (self._agent_held_garbage<self._agent_max_held_garbage):
                 reward += 0.2
                 self._agent_held_garbage+=1
-                self.env_garbage_count-=1
+                self._env_garbage_count-=1
                 self.map[old_coords[1]][old_coords[0]] = self.base_map[old_coords[1]][old_coords[0]]
                 print("Picked up litter")
             else:
@@ -251,9 +268,8 @@ class GridWorldEnv(gym.Env):
             self._agent_Battery-=0.1
         
 
-
         #Map cleared
-        if(self.env_garbage_count==0 & self._agent_held_garbage == 0):
+        if(self._env_garbage_count==0 and self._agent_held_garbage == 0):
             terminated = True
             reward += 1
             print("Map cleared")
