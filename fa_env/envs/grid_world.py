@@ -302,10 +302,18 @@ class GridWorldEnv(gym.Env):
                 canvas.blit(landscape, (square_size * col, square_size * row))
 
     #Render battery display
-    def _render_battery(self, canvas):
+    def _render_battery(self, canvas, text_color):
         font = pygame.font.SysFont(None, 24)
-        battery_text = font.render(f"Battery: {self._agent_Battery:.2f}%", True, (255,0,0))
-        canvas.blit(battery_text, (5,5))
+        battery_text = font.render(f"Battery: {self._agent_Battery:.2f}%", True, text_color)
+        canvas.blit(battery_text, (10,5))
+    
+    #Render Trash display
+    def _render_trash_amount(self, canvas, text_color):
+        font = pygame.font.SysFont(None, 24)
+        agent_text = font.render(f"Agent Trash: {self._agent_held_garbage}/{self._agent_max_held_garbage}", True, text_color)
+        env_text = font.render(f"Env Trash: {self.env_garbage_count}/{self.env_base_garbage_count}", True, text_color)
+        canvas.blit(agent_text, (10,25))
+        canvas.blit(env_text , (10,45))
 
     def _render_frame(self):
         #we can remove self.render_mode == 'human',render_frame is only called when render_mode=='human'
@@ -324,6 +332,8 @@ class GridWorldEnv(gym.Env):
         background = pygame.image.load('./fa_env/env_assets/map_1.png')
         canvas.blit(background, (0, 0))
 
+        text_color = (184, 22, 149)
+
         # The size of a single grid square in pixels
         pix_square_size = ( self.window_size / len(self.map))  
 
@@ -331,7 +341,9 @@ class GridWorldEnv(gym.Env):
 
         self._render_agent(canvas, pix_square_size)
 
-        self._render_battery(canvas)
+        self._render_battery(canvas, text_color)
+
+        self._render_trash_amount(canvas, text_color)
 
         if self.render_mode == 'human':
             # The following line copies our drawings from `canvas` to the visible window
@@ -348,16 +360,6 @@ class GridWorldEnv(gym.Env):
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
 
-    # def _render_garbage(self, canvas, pix_square_size):
-        # garbage_img = pygame.transform.scale(
-        #     MISC_ASSETS['garbage'],
-        #     (int(pix_square_size * 0.8), int(pix_square_size * 0.8))
-        # )
-
-        # for coord in random_garb_coords:
-        #     rect = garbage_img.get_rect(center=coord)
-        
-            # canvas.blit(garbage_img, rect)
 
     def close(self):
         if self.window is not None:
