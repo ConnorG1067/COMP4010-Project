@@ -5,9 +5,12 @@ import pygame
 import numpy as np
 import random
 
+# Subject to change based on future requirements
+MAX_ITERATIONS = 20000
+
 MAP = np.array([
-    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
-    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
+    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
+    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
     ['g', 'g', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'g', 'g'],
     ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
     ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
@@ -61,6 +64,7 @@ class GridWorldEnv(gym.Env):
         self.map = self.base_map.copy()
         self.size = len(MAP)
         self.window_size = 416  # The size of the PyGame window
+        self.iteration_count = 0
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -127,6 +131,8 @@ class GridWorldEnv(gym.Env):
         self._agent_held_garbage = 0
         self._agent_max_held_garbage = 3
 
+        self.iteration_count = 0
+
         self.env_base_garbage_count = random.randint(3, 6)
         self.env_garbage_count = self.env_base_garbage_count
 
@@ -170,6 +176,7 @@ class GridWorldEnv(gym.Env):
         #base variables
         terminated = False
         reward = 0  
+        self.iteration_count += 1
         
         # Map the action (element of {0,1,2,3,4}) to the direction we walk in
         direction = self._action_to_direction[action]
@@ -204,11 +211,19 @@ class GridWorldEnv(gym.Env):
 
         elif action == 4:       #Recharge battery
             if tile_type == 'c':
-                self._agent_Battery+=5
+                if(self._agent_Battery + 5 > 100):
+                    self._agent_Battery = 100
+                else:
+                    self._agent_Battery+=5
+
                 if self._agent_Battery < 80:
                     reward += 0.05
-                else:
+                elif(self._agent_Battery >= 99):
+                    reward -= 0.01
+                else:                    
                     reward += 0.01
+
+                
                 print("Charging")
 
         elif action == 5:       #Pick up litter
@@ -252,7 +267,7 @@ class GridWorldEnv(gym.Env):
         if self.render_mode == 'human':
             self._render_frame()
 
-        return self._get_obs(), reward, terminated, False, self._get_info()
+        return self._get_obs(), reward, terminated, self.iteration_count >= MAX_ITERATIONS, self._get_info()
 
 
     #Doesnt do anything?
