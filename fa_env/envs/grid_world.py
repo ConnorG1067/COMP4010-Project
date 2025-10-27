@@ -220,7 +220,7 @@ class GridWorldEnv(gym.Env):
                 print("Picked up litter")
             else:
                 reward -= 0.05
-                print("Nothing to Picked up")
+                print("Hold limit met") if tile_type == 'l' else print("Nothing to picked up")
             self._agent_Battery-=0.1
 
         elif action == 6:       #Drop off litter
@@ -230,8 +230,7 @@ class GridWorldEnv(gym.Env):
                 print("drop off litter")
             else:
                 reward -= 0.05
-                print("Cant drop off not at trashcan") if tile_type == 't' else None
-                print("nothing to drop off") if self._agent_held_garbage == 0 else None
+                print("nothing to drop off") if tile_type == 't' else print("Cant drop off, not at trashcan")
                 
             self._agent_Battery-=0.1
         
