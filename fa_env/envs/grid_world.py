@@ -129,9 +129,11 @@ class GridWorldEnv(gym.Env):
         self.env_garbage_count = self.env_base_garbage_count
 
         #Place charging station
-        pavement_spaces = np.argwhere(self.map == 'p')
-        space = random.choice(pavement_spaces)
-        self.map[space[1]][space[0]] = 'c'
+        charging_space = random.choice(np.argwhere(np.isin(self.map, ['p'])))
+
+        self.map[charging_space[1]][charging_space[0]] = 'c'
+        self.map[charging_space[0]][charging_space[1]] = 't'
+        self._target_location = np.array([charging_space[0], charging_space[1]]) 
 
         #Place bushes
         for i in range(9):
@@ -148,20 +150,14 @@ class GridWorldEnv(gym.Env):
         # Find garbage location
         random_garb_coords = [accessible_coords[index] for index in (np.random.choice(len(accessible_coords), self.env_base_garbage_count, replace=False))]
         for coord in random_garb_coords: self.map[coord[1]][coord[0]] = 'l'
-        accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['g','s','p']))
+        accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['p']))
         
 
         # Choose the agent's location uniformly at random (Roomba)
         self._agent_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
         # Explaination 
         accessible_coords = accessible_coords[~np.all(accessible_coords == self._agent_location, axis=1)]
-        
-        # Choose target location (Garbage bin)
-        self._target_location = accessible_coords[np.random.randint(0, len(accessible_coords))]        
-        self.map[self._target_location[1]][self._target_location[0]] = 't'
-        accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['g','s','p']))
 
-        
         if self.render_mode == 'human':
             self._render_frame()
         
@@ -183,7 +179,6 @@ class GridWorldEnv(gym.Env):
 
         #Terrain effcts and battery decay, robot is effected by predvous tile
         tile_type = self.map[old_coords[1]][old_coords[0]]
-        print(tile_type)
         random_number = random.random() #random float between 0 and 1
 
         #Base battery useage
