@@ -165,9 +165,8 @@ class GridWorldEnv(gym.Env):
         #Drop off trash
 
         #Terrain effcts and battery decay, robot is effected by predvous tile
-        tile_type = self.map[old_coords[0]][old_coords[1]]
+        tile_type = self.map[old_coords[1]][old_coords[0]]
         random_number = random.random() #random float between 0 and 1
-        print(old_coords)
 
         #Base battery useage
         self._agent_Battery-= 0.05
@@ -176,13 +175,13 @@ class GridWorldEnv(gym.Env):
             if tile_type == 'g':
                 if(random_number < 0.01):
                     terminated = True
-                    rewards -= 1
+                    reward -= 1
                     print("Stuck in grass")
                 self._agent_Battery-=movement_cost*2
             elif tile_type == 's':
                 if(random_number < 0.05):
                     terminated = True
-                    rewards -= 1
+                    reward -= 1
                     print("Stuck in sand")
                 self._agent_Battery-=movement_cost*3
             else:
@@ -191,18 +190,18 @@ class GridWorldEnv(gym.Env):
         #Recharge battery
         if tile_type == 'c':
             self._agent_Battery+=5
-            rewards += 0.01
+            reward += 0.01
             print("Charging")
 
         #Target reached
         if(np.array_equal(self._agent_location, self._target_location)):
             terminated = True
-            rewards += 1
+            reward += 1
             print("Target reached")
         #Battery died
         elif(self._agent_Battery<=0):
             terminated = True
-            rewards -= 1
+            reward -= 1
             print("battery died")
 
         #Render pygame
