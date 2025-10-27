@@ -327,7 +327,7 @@ class GridWorldEnv(gym.Env):
     def _render_trash_amount(self, canvas, text_color):
         font = pygame.font.SysFont(None, 24)
         agent_text = font.render(f"Agent Trash: {self._agent_held_garbage}/{self._agent_max_held_garbage}", True, text_color)
-        env_text = font.render(f"Env Trash: {self.env_garbage_count}/{self.env_base_garbage_count}", True, text_color)
+        env_text = font.render(f"Env Trash: {self._env_garbage_count}/{self.env_base_garbage_count}", True, text_color)
         canvas.blit(agent_text, (10,25))
         canvas.blit(env_text , (10,45))
 
