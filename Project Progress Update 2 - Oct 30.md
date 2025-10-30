@@ -72,6 +72,8 @@
 
 ###### Shawnia
 * began working on robot field of vision
+* pushed an implementation of FOV
+* Git hash: a468e91f4eb73440282598aa6da4c100c28c66dc
 
 #### Next 2 weeks
 * figure out how to reprecent all of our state varables as a state value for each tile
