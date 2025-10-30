@@ -24,6 +24,18 @@ MAP = np.array([
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g']
 ])
 
+TERRAIN_CODE = {
+    'x': 0,  # out of bounds
+    'p': 1,  # pavement
+    'g': 2,  # grass
+    's': 3,  # sand
+    'w': 4,  # water
+    'c': 5,  # charger
+    'b': 6,  # bush / obstacle
+    't': 7,  # trash bin
+    'l': 8,  # litter
+}
+
 OBJECT_ASSETS = {  
     'c': pygame.image.load('./fa_env/env_assets/charge_1.png'),
     'b': pygame.image.load('./fa_env/env_assets/obstacle_10.png'),  
@@ -63,6 +75,7 @@ class GridWorldEnv(gym.Env):
         self.base_map = np.array([list(row) for row in MAP])
         self.map = self.base_map.copy()
         self.size = len(MAP)
+        self.fov_radius = 2  # The radius of the agent's field of view
         self.window_size = 416  # The size of the PyGame window
         
 
@@ -74,6 +87,9 @@ class GridWorldEnv(gym.Env):
         self._charging_station_position = None
         self._trash_bin_position = None
 
+        #fov_size
+        fov_size = 2 * self.fov_radius + 1
+
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
         # i.e. MultiDiscrete([size, size]).
@@ -81,10 +97,7 @@ class GridWorldEnv(gym.Env):
             'agent_pos': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
             'agent_battery': spaces.Box(0, 100, shape=(), dtype=float),
             'agent_trashload': spaces.Discrete(4),
-            'current_terrain_type': spaces.Discrete(4),
-            'envrionment_trash_amount': spaces.Discrete(10),
-            'charging_station_position': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
-            'trash_bin_position': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
+            'visible_area': spaces.Box(low=0, high=8, shape=(fov_size, fov_size), dtype=np.int8),
         })
 
         # We have 7 actions, corresponding to 'right', 'up', 'left', 'down', 'stay','pick up',and 'drop off'
@@ -118,16 +131,34 @@ class GridWorldEnv(gym.Env):
         self.window = None
         self.clock = None
 
+    def _get_local_view(self):
+        ax, ay = self._agent_location
+        size = self.size
+
+        local_view = []
+        for range_y in range(-self.fov_radius, self.fov_radius + 1):
+            row = []
+            for range_x in range(-self.fov_radius, self.fov_radius + 1):
+                tile_x_coord = ax + range_x
+                tile_y_coord = ay + range_y
+                if 0 <= tile_x_coord < size and 0 <= tile_y_coord < size:
+                    tile = self.map[tile_y_coord][tile_x_coord]
+                    row.append(TERRAIN_CODE.get(tile))
+                else:
+                    row.append(TERRAIN_CODE['x'])  # Out of bounds
+            local_view.append(row)
+        local_view = np.array(local_view, dtype=np.int8)
+        return local_view
+
     def _get_obs(self):
         return {
-            'agent_pos': self._agent_location, 
+            # for POMDP robot should only see local area, its current battery and trashload
+            'agent_pos': self._agent_location,  
+            # position is not exactly needed by the agent for POMDP, but right now we're using it for training in main.py
+            # so depending on implementation of training agent position can be removed
             'agent_battery' : self._agent_Battery,
-            'current_terrain_type' : self.map[self._agent_location[1]][self._agent_location[0]],
             'agent_trashload' : self._agent_held_garbage,
-            'envrionment_trash_amount' : self._env_garbage_count,
-            'trash_position' : self._trash_known_positions,
-            'charging_station_position' : self._charging_station_position,
-            'trash_bin_position' : self. _trash_bin_position
+            'visible_area': self._get_local_view()
         }
 
     def _get_info(self):
