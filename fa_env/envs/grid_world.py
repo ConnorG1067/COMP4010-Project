@@ -31,10 +31,6 @@ OBJECT_ASSETS = {
     'l': pygame.image.load('./fa_env/env_assets/garbage.png')
 }
 
-MISC_ASSETS = {
-    'garbage' : pygame.image.load("./fa_env/env_assets/garbage.png"),
-}
-
 class Actions(Enum):
     right = 0
     up = 1
@@ -80,9 +76,11 @@ class GridWorldEnv(gym.Env):
         self.observation_space = spaces.Dict({
             'agent_pos': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
             'agent_battery': spaces.Box(0, 100, shape=(), dtype=float),
-            'agent_trashload': spaces.Discrete(4),
             'current_terrain_type': spaces.Discrete(4),
+            'agent_trashload': spaces.Discrete(4),
+            #'agent_capacity' : self._agent_max_held_garbage,
             'envrionment_trash_amount': spaces.Discrete(10),
+            #'trash_positions' : self._trash_known_positions,
             'charging_station_position': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
             'trash_bin_position': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
         })
@@ -124,8 +122,9 @@ class GridWorldEnv(gym.Env):
             'agent_battery' : self._agent_Battery,
             'current_terrain_type' : self.map[self._agent_location[1]][self._agent_location[0]],
             'agent_trashload' : self._agent_held_garbage,
+            'agent_capacity' : self._agent_max_held_garbage,
             'envrionment_trash_amount' : self._env_garbage_count,
-            'trash_position' : self._trash_known_positions,
+            'trash_positions' : self._trash_known_positions,
             'charging_station_position' : self._charging_station_position,
             'trash_bin_position' : self. _trash_bin_position
         }
@@ -286,12 +285,9 @@ class GridWorldEnv(gym.Env):
         return self._get_obs(), reward, terminated, self.iteration_count >= MAX_ITERATIONS, self._get_info()
 
 
-    #Doesnt do anything?
-    #def render(self):
-    #    if self.render_mode == 'rgb_array':
-    #       return self._render_frame()
-        
-    #Render Agent
+    ###########################################################################################################
+    # Redering Methods
+    ###########################################################################################################
     def _render_agent(self, canvas, pix_square_size):
         agent_img = pygame.image.load('./fa_env/env_assets/roomba.png')
         agent_img = pygame.transform.scale(
@@ -304,7 +300,6 @@ class GridWorldEnv(gym.Env):
         
         canvas.blit(agent_img, rect)
     
-    #Render Objects
     def _render_objects(self, canvas, square_size):
         object_spaces = np.argwhere(np.isin(self.map, ['c', 'b','t','l']))
 
@@ -317,14 +312,12 @@ class GridWorldEnv(gym.Env):
                 )
                 canvas.blit(landscape, (square_size * col, square_size * row))
 
-    #Render battery display
-    def _render_battery(self, canvas, text_color):
+    def _render_battery_text(self, canvas, text_color):
         font = pygame.font.SysFont(None, 24)
         battery_text = font.render(f"Battery: {self._agent_Battery:.2f}%", True, text_color)
         canvas.blit(battery_text, (10,5))
     
-    #Render Trash display
-    def _render_trash_amount(self, canvas, text_color):
+    def _render_trash_text(self, canvas, text_color):
         font = pygame.font.SysFont(None, 24)
         agent_text = font.render(f"Agent Trash: {self._agent_held_garbage}/{self._agent_max_held_garbage}", True, text_color)
         env_text = font.render(f"Env Trash: {self._env_garbage_count}/{self.env_base_garbage_count}", True, text_color)
@@ -332,49 +325,49 @@ class GridWorldEnv(gym.Env):
         canvas.blit(env_text , (10,45))
 
     def _render_frame(self):
-        #we can remove self.render_mode == 'human',render_frame is only called when render_mode=='human'
-        if self.window is None and self.render_mode == 'human':
+        # We can remove self.render_mode == 'human',render_frame is only called when render_mode=='human'
+        if self.window is None:
             pygame.init()
             pygame.display.init()
             pygame.display.set_caption('Cleaning Robot - Demo')
             self.window = pygame.display.set_mode((self.window_size, self.window_size))
         
-        #Setup Clock
-        if self.clock is None and self.render_mode == 'human':
+        # Setup Clock
+        if self.clock is None:
             self.clock = pygame.time.Clock()
 
-        #Setup Pygame window
+        # Setup Pygame window
         canvas = pygame.Surface((self.window_size, self.window_size))
         background = pygame.image.load('./fa_env/env_assets/map_1.png')
         canvas.blit(background, (0, 0))
 
-        text_color = (184, 22, 149)
-
         # The size of a single grid square in pixels
         pix_square_size = ( self.window_size / len(self.map))  
 
+        # Reder Assets
         self._render_objects(canvas, pix_square_size)
-
         self._render_agent(canvas, pix_square_size)
 
-        self._render_battery(canvas, text_color)
+        # Render Text
+        text_color = (165, 0, 168)
+        self._render_battery_text(canvas, text_color)
+        self._render_trash_text(canvas, text_color)
 
-        self._render_trash_amount(canvas, text_color)
+        # The following line copies our drawings from `canvas` to the visible window
+        self.window.blit(canvas, canvas.get_rect())
+        pygame.event.pump()
+        pygame.display.update()
 
-        if self.render_mode == 'human':
-            # The following line copies our drawings from `canvas` to the visible window
-            self.window.blit(canvas, canvas.get_rect())
-            pygame.event.pump()
-            pygame.display.update()
+        # We need to ensure that human-rendering occurs at the predefined framerate.
+        # The following line will automatically add a delay to
+        # keep the framerate stable.
+        self.clock.tick(self.metadata['render_fps'])
 
-            # We need to ensure that human-rendering occurs at the predefined framerate.
-            # The following line will automatically add a delay to
-            # keep the framerate stable.
-            self.clock.tick(self.metadata['render_fps'])
-        else:  # rgb_array
-            return np.transpose(
-                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
-            )
+        # Does not end run nicely the results will not be saved
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.display.quit()
+                pygame.quit()
 
 
     def close(self):
