@@ -3,9 +3,8 @@ import pickle as pkl
 from fa_env.envs.grid_world import GridWorldEnv
 import matplotlib.pyplot as plt
 
-def convert_action_to_int(array):
-    return (array[0] + 1) * (array[1] + 1) - 1
 
+#Helpers
 def fetch_model(is_training, env, algorithm):
     if is_training or algorithm == "":
         q = np.zeros((env.size**2, env.action_space.n))
@@ -14,11 +13,9 @@ def fetch_model(is_training, env, algorithm):
             q = pkl.load(f)
     return q
 
-
 def update_model(q,algorithm):
     with open(f"{algorithm}_model.pkl", "wb") as f:
             pkl.dump(q, f)
-
 
 def plot_run(episodes, rewards_per_episode, algorithm):
     sum_rewards = np.zeros(episodes)
@@ -32,13 +29,18 @@ def plot_run(episodes, rewards_per_episode, algorithm):
     plt.savefig(f'{algorithm}_model.png')
     plt.close()
 
+def convert_action_to_int(array):
+    return (array[0] + 1) * (array[1] + 1) - 1
 
+
+# Algorithms
 def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
     
     q = fetch_model(is_training, env,"q_learning")
     rewards_per_episode = np.zeros(episodes)
 
     for i in range(episodes):
+        # Reset environment 
         state = env.reset()[0]
         terminated = False
         truncated = False
@@ -58,6 +60,9 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
 
 
             new_state, reward, terminated, truncated, _ = env.step(action)
+            # is info which is used in an action mask should we make one
+            # used for only picking legal option
+
 
             rewards += reward
 
@@ -70,16 +75,20 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
             
             state = new_state
 
-        rewards_per_episode[i] = rewards
-        # Implement Epsilon decay rate (As you develop a good policy you should explore less and take the greedy option)
-        # If epsilon is ever 0 decrease learning rate
+        #Update exploration rate, then lowering learning rate once fully greedy
+        #epsilon = max(epsilon - epsilon_decay_rate, 0)
+        #if epsilon == 0:
+        #    learning_rate_a = 0.0001  # Lower learning rate once fully greedy
 
+        rewards_per_episode[i] = rewards
+
+    #Post-training
     env.close()
+
+    plot_run(episodes, rewards_per_episode, "q_learning")
 
     if is_training: 
         update_model(q,"q_learning")
-
-    plot_run(episodes, rewards_per_episode, "q_learning")
 
     
         

@@ -70,6 +70,8 @@ class GridWorldEnv(gym.Env):
         self._charging_station_position = None
         self._trash_bin_position = None
 
+        self._max_trash = 6
+
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
         # i.e. MultiDiscrete([size, size]).
@@ -78,11 +80,11 @@ class GridWorldEnv(gym.Env):
             'agent_battery': spaces.Box(0, 100, shape=(), dtype=float),
             'current_terrain_type': spaces.Discrete(4),
             'agent_trashload': spaces.Discrete(4),
-            #'agent_capacity' : self._agent_max_held_garbage,
+            'agent_capacity' : spaces.Discrete(self._agent_max_held_garbage + 1), # this is new
             'envrionment_trash_amount': spaces.Discrete(10),
-            #'trash_positions' : self._trash_known_positions,
+            'trash_positions' : spaces.Box(0, self.size - 1, shape=(self._max_trash, 2), dtype=int), # this is new
             'charging_station_position': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
-            'trash_bin_position': spaces.Box(0, self.size - 1, shape=(2,), dtype=int),
+            'trash_bin_position': spaces.Box(0, self.size - 1, shape=(2,), dtype=int)
         })
 
         # We have 7 actions, corresponding to 'right', 'up', 'left', 'down', 'stay','pick up',and 'drop off'
@@ -149,7 +151,7 @@ class GridWorldEnv(gym.Env):
         self._agent_held_garbage = 0
 
         # Pick a number of garbage pieces
-        self.env_base_garbage_count = random.randint(3, 6)
+        self.env_base_garbage_count = random.randint(3, self._max_trash)
         self._env_garbage_count = self.env_base_garbage_count
 
         #Place charging station
