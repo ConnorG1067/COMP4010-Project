@@ -70,7 +70,7 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
                 state_as_int = convert_action_to_int(state['agent_pos'])
                 new_state_as_int = convert_action_to_int(new_state['agent_pos'])
                 # Q(s, a) ← Q(s, a) + α * [r + γ * max(Q(s', ·)) - Q(s, a)]
-                q[state_as_int, action] = q[state_as_int, action] + learning_rate_a * (reward + (discount_factor * np.argmax(q[new_state_as_int, :])) - q[state_as_int, action])
+                q[state_as_int, action] = q[state_as_int, action] + learning_rate_a * (reward + (discount_factor * np.max(q[new_state_as_int, :])) - q[state_as_int, action])
                 
             
             state = new_state
