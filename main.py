@@ -95,6 +95,63 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
 
 #def dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, max_model_steps, episodes):
 
+def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
+    
+    q = fetch_model(is_training, env, "sarsa")
+    rewards_per_episode = np.zeros(episodes)
+
+    for i in range(episodes):
+        # Reset environment 
+        state = env.reset()[0]
+        terminated = False
+        truncated = False
+
+        rewards = 0
+
+        # Epsilon greedy algorithm
+        if(is_training and np.random.rand() < epsilon):
+            # If random number less than epsilon sample the action space uniformly
+            action = env.action_space.sample()
+        else:
+            action = np.argmax(q[convert_action_to_int(state['agent_pos']), :])
+
+        while not truncated and not terminated:
+            new_state, reward, terminated, truncated, _ = env.step(action)
+            # is info which is used in an action mask should we make one
+            # used for only picking legal option
+
+            # Do epsilon greedy to update action
+            if(is_training and np.random.rand() < epsilon):
+                # If random number less than epsilon sample the action space uniformly
+                new_action = env.action_space.sample()
+            else:
+                new_action = np.argmax(q[convert_action_to_int(state['agent_pos']), :])
+
+            rewards += reward
+
+            if(is_training):
+                state_as_int = convert_action_to_int(state['agent_pos'])
+                new_state_as_int = convert_action_to_int(new_state['agent_pos'])
+                # Q(s, a) ← Q(s, a) + α * [r + γ * max(Q(s', ·)) - Q(s, a)]
+                q[state_as_int, action] = q[state_as_int, action] + learning_rate_a * (reward + (discount_factor * np.max(q[new_state_as_int, new_action])) - q[state_as_int, action])
+                
+            state = new_state
+            action = new_action
+
+        #Update exploration rate, then lowering learning rate once fully greedy
+        #epsilon = max(epsilon - epsilon_decay_rate, 0)
+        #if epsilon == 0:
+        #    learning_rate_a = 0.0001  # Lower learning rate once fully greedy
+
+        rewards_per_episode[i] = rewards
+
+    #Post-training
+    env.close()
+
+    plot_run(episodes, rewards_per_episode, "sarsa")
+
+    if is_training: 
+        update_model(q,"sarsa")
 
 
 def run(episodes, is_training=True, render=False):
@@ -112,6 +169,8 @@ def run(episodes, is_training=True, render=False):
     q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes)
     #Algorithm 2
     #dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, max_model_steps, episodes)
+    #Algorithm 3
+    # sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes)
 
 
 #Main
