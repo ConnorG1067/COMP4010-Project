@@ -30,13 +30,15 @@ def plot_run(episodes, rewards_per_episode, algorithm):
     plt.close()
 
 def convert_action_to_int(array):
-    return (array[0] + 1) * (array[1] + 1) - 1
+    map_width = 13 
+    return array[1] * map_width + array[0]
 
 
 # Algorithms
 def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
     
-    q = fetch_model(is_training, env,"q_learning")
+    q = fetch_model(is_training, env, "q_learning")
+    print(q)
     rewards_per_episode = np.zeros(episodes)
 
     for i in range(episodes):
@@ -52,12 +54,9 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
                 # If random number less than epsilon sample the action space uniformly
                 action = env.action_space.sample()
             else:
+                print(state)
                 action = np.argmax(q[convert_action_to_int(state['agent_pos']), :])
-                
-                # print(q[convert_action_to_int(state['agent']), :])
-                # print(action)
-                # print()
-
+                print(action)
 
             new_state, reward, terminated, truncated, _ = env.step(action)
             # is info which is used in an action mask should we make one
@@ -174,5 +173,5 @@ def run(episodes, is_training=True, render=False):
 
 
 #Main
-run(100, render=False, is_training=True)
-run(5, render=True)
+# run(10000, render=False, is_training=True)
+run(5, render=True, is_training=False)
