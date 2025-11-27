@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 #Helpers
 def fetch_model(is_training, env, algorithm):
     if is_training or algorithm == "":
-        q = np.zeros((env.size**2, env.action_space.n))
+        q = np.zeros((env.observation_space.n, env.action_space.n))
     else:
         with open(f"./{algorithm}_model.pkl", "rb") as f:
             q = pkl.load(f)
@@ -36,50 +36,44 @@ def convert_action_to_int(array):
 
 # Algorithms
 def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
-    
     q = fetch_model(is_training, env, "q_learning")
-    print(q)
     rewards_per_episode = np.zeros(episodes)
 
     for i in range(episodes):
         # Reset environment 
-        state = env.reset()[0]
+        state = env.reset()
         terminated = False
         truncated = False
+        total_reward = 0
+        if(i%1000==0):
+            print(i)
 
-        rewards = 0
         while not truncated and not terminated:
             # Epsilon greedy algorithm
             if(is_training and np.random.rand() < epsilon):
-                # If random number less than epsilon sample the action space uniformly
-                action = env.action_space.sample()
+                action = np.random.randint(0, env.action_space.n - 1)
             else:
-                print(state)
-                action = np.argmax(q[convert_action_to_int(state['agent_pos']), :])
-                print(action)
+                action = np.argmax(q[state])
 
-            new_state, reward, terminated, truncated, _ = env.step(action)
-            # is info which is used in an action mask should we make one
-            # used for only picking legal option
-
-
-            rewards += reward
+            new_state, reward, terminated = env.step(action)
+            total_reward += reward
 
             if(is_training):
-                state_as_int = convert_action_to_int(state['agent_pos'])
-                new_state_as_int = convert_action_to_int(new_state['agent_pos'])
                 # Q(s, a) ← Q(s, a) + α * [r + γ * max(Q(s', ·)) - Q(s, a)]
-                q[state_as_int, action] = q[state_as_int, action] + learning_rate_a * (reward + (discount_factor * np.max(q[new_state_as_int, :])) - q[state_as_int, action])
-                
+                q[state, action] += learning_rate_a * (reward + discount_factor * np.max(q[new_state]) - q[state, action])
+                #prevents overflow
+                q[state, action] = np.clip(q[state, action], -1e6, 1e6)
+
+            
             
             state = new_state
 
         #Update exploration rate, then lowering learning rate once fully greedy
-        #epsilon = max(epsilon - epsilon_decay_rate, 0)
-        #if epsilon == 0:
-        #    learning_rate_a = 0.0001  # Lower learning rate once fully greedy
+        epsilon = max(epsilon - epsilon_decay_rate, 0)
+        if epsilon == 0:
+            learning_rate_a = 0.0001  # Lower learning rate once fully greedy
 
-        rewards_per_episode[i] = rewards
+        rewards_per_episode[i] = total_reward
 
     #Post-training
     env.close()
@@ -158,7 +152,7 @@ def run(episodes, is_training=True, render=False):
     np.random.seed(101194261)
 
     #Algorithm control variables
-    learning_rate_a = 0.9
+    learning_rate_a = 0.1
     discount_factor = 0.9
     epsilon = 1.0
     epsilon_decay_rate = 0.0001
@@ -173,5 +167,5 @@ def run(episodes, is_training=True, render=False):
 
 
 #Main
-# run(10000, render=False, is_training=True)
+#run(9000, render=False, is_training=True)
 run(5, render=True, is_training=False)

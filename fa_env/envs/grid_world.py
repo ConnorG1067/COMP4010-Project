@@ -9,36 +9,20 @@ import random
 MAX_ITERATIONS = 20000
 
 MAP = np.array([
-    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'l'],
+    ['g', 'g', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'g', 'g', 'g'],
     ['g', 'b', 'g', 's', 's', 'w', 'w', 'w', 's', 's', 'b', 'g', 'g'],
-    ['g', 'g', 'c', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'g', 'g'],
-    ['g', 'l', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
+    ['g', 'g', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'g', 'g'],
+    ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
     ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
     ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
     ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
     ['w', 'w', 'p', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'p', 'w', 'w'],
     ['g', 'g', 'p', 's', 's', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
     ['g', 'b', 'p', 's', 'b', 'w', 'w', 'w', 's', 's', 'p', 'g', 'g'],
-    ['g', 'g', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 't', 'g', 'g'],
-    ['b', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'l', 'g', 'g', 'b', 'g'],
+    ['g', 'g', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p', 'g', 'g'],
+    ['b', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'b', 'g'],
     ['g', 'g', 'g', 'g', 'g', 'w', 'w', 'w', 'g', 'g', 'g', 'g', 'g']
 ])
-
-OBJECT_ASSETS = {  
-    'c': pygame.image.load('./fa_env/env_assets/charge_1.png'),
-    'b': pygame.image.load('./fa_env/env_assets/obstacle_10.png'),  
-    't': pygame.image.load('./fa_env/env_assets/trashcan_1.png'),
-    'l': pygame.image.load('./fa_env/env_assets/garbage.png')
-}
-
-class Actions(Enum):
-    right = 0
-    up = 1
-    left = 2
-    down = 3
-    stay = 4  # wait/recharge
-    pick_up = 5
-    drop_off = 6
 
 ### GridMap Envrionment
 #Terrain Types
@@ -55,57 +39,39 @@ class Actions(Enum):
 class GridWorldEnv(gym.Env):
     metadata = {'render_modes': ['human', 'rgb_array'], 'render_fps': 4}
 
-    def __init__(self, render_mode=None):
-        self.base_map = np.array([list(row) for row in MAP])
-        self.map = self.base_map.copy()
+    def __init__(self, terrain_map=MAP, render_mode=None, is_training=True):
         self.size = len(MAP)
         self.window_size = 416  # The size of the PyGame window
 
-        self.iteration_count = 0
-        self._agent_Battery = 100.00
+        self.terrain_map = MAP
+        self.grid_rows, self.grid_cols = terrain_map.shape
+
+        self._agent_max_battery = 100.00  
+        self._agent_battery = self._agent_max_battery 
+        self._charging_station_position = (2, 2) 
+
+        #status uncollected,collected, deposited
+        self._trash_bin_position = (10, 10) 
+        self._garbage = [{"location": (12, 0), "status": "uncollected"},
+                        {"location": (1, 3), "status": "uncollected"},
+                        {"location": (8, 11), "status": "uncollected"}]
+        
+        # Used in rendering
         self._agent_held_garbage = 0
         self._agent_max_held_garbage = 1
         self.env_base_garbage_count = 3
         self._env_garbage_count = 3
-        self._charging_station_position = (2, 2)
-        self._trash_bin_position = (10, 10)
-        #status uncollected,collected, deposited
-        self._garbage = [{"location": (12, 0), "status": "uncollected"},
-                        {"location": (1, 3), "status": "uncollected"},
-                        {"location": (8, 11), "status": "uncollected"}]
-
-
-        # Observations are dictionaries with the agent's and the target's location.
-        # Each location is encoded as an element of {0, ..., `size`}^2,
-        # i.e. MultiDiscrete([size, size]).
-        self.observation_space = spaces.Dict({
-            'agent_pos': spaces.Box(low=0, high=self.size - 1, shape=(2,), dtype=int),
-            'agent_battery': spaces.Box(low=0, high=100, shape=(1,), dtype=float),
-            'agent_trashload': spaces.Discrete(self._agent_max_held_garbage + 1),
-            'trash_positions': spaces.Box(low=0, high=self.size - 1, shape=(3, 2), dtype=int),
-            'charging_station_position': spaces.Box(low=0, high=self.size - 1, shape=(2,), dtype=int),
-            'trash_bin_position': spaces.Box(low=0, high=self.size - 1, shape=(2,), dtype=int)
-        })
-
-        # We have 7 actions, corresponding to 'right', 'up', 'left', 'down', 'stay','pick up',and 'drop off'
+    
+        # We have 7 actions, corresponding to 'right', 'up', 'left', 'down', 'recharge','pick up',and 'drop off'
         self.action_space = spaces.Discrete(7)
 
-        '''
-        The following dictionary maps abstract actions from `self.action_space` to 
-        the direction we will walk in if that action is taken.
-        i.e. 0 corresponds to 'right', 1 to 'up' etc.
-        '''
-        self._action_to_direction = {
-            Actions.right.value: np.array([1, 0]),
-            Actions.up.value: np.array([0, 1]),
-            Actions.left.value: np.array([-1, 0]),
-            Actions.down.value: np.array([0, -1]),
-            Actions.stay.value: np.array([0, 0]),
-            Actions.pick_up.value: np.array([0, 0]),
-            Actions.drop_off.value: np.array([0, 0])
-        }
+        
+        # Observation space: Discrete encoding, Map size * battery states * (garbage status * # of garbage)
+        self.observation_space = spaces.Discrete(
+            self.grid_rows * self.grid_cols * 4 * (3 ** self.env_base_garbage_count)
+        )
 
-        assert render_mode is None or render_mode in self.metadata['render_modes']
+        #assert render_mode is None or render_mode in self.metadata['render_modes']
         self.render_mode = render_mode
 
         '''
@@ -118,132 +84,139 @@ class GridWorldEnv(gym.Env):
         self.window = None
         self.clock = None
 
-    def _get_obs(self):
-        trash_locs = np.array([g["location"] for g in self._garbage], dtype=int)
+    def battery_state(self):
+        #Convert battery to discrete state
+        if self._agent_battery <= 25: return 0  # Low
+        elif self._agent_battery <= 50: return 1  # Medium
+        elif self._agent_battery <= 85: return 2  # High
+        else: return 3  # Max
 
-        return {
-            'agent_pos': self._agent_location,
-            'agent_battery': np.array([self._agent_Battery], dtype=float),
-            'agent_trashload': self._agent_held_garbage,
-            'trash_positions': trash_locs,
-            'charging_station_position': self._charging_station_position,
-            'trash_bin_position': self._trash_bin_position
-        }
-
-    def _get_info(self):
-        return {
-            'distance': np.linalg.norm(
-                self._agent_location - self._trash_bin_position, ord=1
-            )
-        }
-
-    def reset(self, seed=None, options=None):
-        # We need the following line to seed self.np_random
-        super().reset(seed=seed)
-
-        # Reset variables
-        self._agent_Battery = 100.00
-        self.iteration_count = 0
-        self._agent_held_garbage = 0
-
-        #Idea for Connor, to prevent getting trapped do as i did with bushes, but place agent only on pavement, target only on sand
-
-        # We will sample the target's location randomly until it does not
-        # coincide with the agent's location
-        accessible_coords = accessible_coords = np.argwhere(np.isin(self.map, ['g','s','p']))        
-
-        # Choose the agent's location uniformly at random (Roomba)
-        self._agent_location = accessible_coords[np.random.randint(0, len(accessible_coords))]
-
-        if self.render_mode == 'human':
-            self._render_frame()
+    def reset(self):
+        while True:
+            r = random.randint(0, self.grid_rows - 1)
+            c = random.randint(0, self.grid_cols - 1)
+            if self.terrain_map[r][c] not in ['w', 'b']:
+                self.agent_row, self.agent_col = r, c
+                break
         
+        self._agent_battery = self._agent_max_battery
+        for g in self._garbage:
+            g["status"] = "uncollected"
+        return self.encode_state()
 
-        return self._get_obs(), self._get_info()
+    def encode_state(self):
+        status_map = {'uncollected': 0, 'collected': 1, 'deposited': 2}
+        passenger_code = 0
+        base = 3
+        for i, p in enumerate(self._garbage):
+            passenger_code += status_map[p["status"]] * (base ** i)
+        
+        state_idx = (
+            self.agent_row * self.grid_cols * 4 * (base ** self.env_base_garbage_count) +
+            self.agent_col * 4 * (base ** self.env_base_garbage_count) +
+            self.battery_state() * (base ** self.env_base_garbage_count) +
+            passenger_code
+        )
+        return state_idx
 
     def step(self, action):
         #base variables
         terminated = False
-        reward = 0  
-        self.iteration_count += 1
+        reward = -0.01  
+        movement_cost = 1
+        action_cost = 0.5
         
-        # Map the action (element of {0,1,2,3,4}) to the direction we walk in
-        direction = self._action_to_direction[action]
-        old_coords = self._agent_location
-        new_coords = self._agent_location + direction
 
-        if((new_coords[0] < 13 and new_coords[1] < 13) and (new_coords[0] >= 0 and new_coords[1] >= 0) and (str(self.map[new_coords[1]][new_coords[0]]).strip() not in ['w', 'b'])):
-            self._agent_location = new_coords
-
-        #Terrain effcts and battery decay, robot is effected by predvous tile
-        tile_type = self.map[old_coords[1]][old_coords[0]]
-
-        #Base battery useage
-        self._agent_Battery-= 0.05
-        if action < 4:      #Movement
-            movement_cost = 0.2 
-            # if tile_type == 'g':
-            #     if(random_number < 0.01):
-            #         terminated = True
-            #         reward -= 0.5
-            #         print("Stuck in grass")
-                # self._agent_Battery-=movement_cost*2
-            # elif tile_type == 's':
-                # if(random_number < 0.05):
-                #     terminated = True
-                #     reward -= 0.5
-                #     print("Stuck in sand")
-                # self._agent_Battery-=movement_cost*3
-            # else:
-            self._agent_Battery-=movement_cost
-
-        elif action == 4:       #Recharge battery
-            if tile_type == 'c':
-                if(self._agent_Battery + 5 > 100):
-                    self._agent_Battery = 100
-                else:
-                    self._agent_Battery+=5
-
-                if self._agent_Battery < 80:
-                    reward += 0.05
-                elif(self._agent_Battery >= 99):
-                    reward -= 0.01
-                else:                    
-                    reward += 0.01
-
-        elif action == 5:       #Pick up litter
-            if tile_type == 'l' and (self._agent_held_garbage<self._agent_max_held_garbage):
-                for g in self._garbage:
-                    if g["status"] == "waiting" and g["location"] == (old_coords[1],old_coords[0]):
-                        g["status"] = "collected"
-
-                reward += 0.2
-                self._agent_held_garbage+=1
-                self._env_garbage_count-=1
-                self.map[old_coords[1]][old_coords[0]] = 'p'
+        # Movement
+        #if action in [0, 1, 2, 3]:
+        if action < 4:
+            new_row, new_col = self.agent_row, self.agent_col
+            if action == 0: 
+                new_row = max(0, self.agent_row - 1)
+                if self.render_mode == 'human': print("Up")
+            elif action == 1: 
+                new_row = min(self.grid_rows - 1, self.agent_row + 1)
+                if self.render_mode == 'human': print("Down")
+            elif action == 2: 
+                new_col = min(self.grid_cols - 1, self.agent_col + 1)
+                if self.render_mode == 'human': print("Right")
+            elif action == 3: 
+                new_col = max(0, self.agent_col - 1)
+                if self.render_mode == 'human': print("Left")
+        # Check walls
+            if self.terrain_map[new_row][new_col] in ['w', 'b']:
+                reward = -0.1  # penalty for trying to move into wall
             else:
-                reward -= 0.05
-            self._agent_Battery-=0.1
+                # Update position
+                self.agent_row, self.agent_col = new_row, new_col
+                # Apply terrain effects
+                terrain = self.terrain_map[self.agent_row][self.agent_col]
+                if terrain == 'g' :
+                    self._agent_battery -= movement_cost * 2
+                    if random.random() < 0.01:
+                        reward = -0.5; terminated = True  # stuck on grass
+                elif terrain == 's' :
+                    self._agent_battery -= movement_cost * 4
+                    if random.random() < 0.03:
+                        reward = -1; terminated = True  # stuck on sand 
+                else: # pavment
+                    self._agent_battery -= movement_cost
+        
+        # Recharge
+        elif action == 4:
+            if self.render_mode == 'human': print("Recharge")
+            if (self.agent_row, self.agent_col) == self._charging_station_position:
+                self._agent_battery+=5
+            else:
+                self._agent_battery -= action_cost
+                # if self.battery_state() == 0:
+                #     reward += 0.1
+                # elif self.battery_state() == 1:
+                #     reward += 0.05
+                # elif self.battery_state() == 2:
+                #     reward += 0.01
+                # else:
+                #     reward -= 0.1
 
-        elif action == 6:       #Drop off litter
-            if tile_type == 't' and self._agent_held_garbage>0:
+        # Pickup
+        elif action == 5:
+            if self.render_mode == 'human': print("Pick up")
+            success = False
+            for g in self._garbage:
+                if g["status"] == "uncollected" and g["location"] == (self.agent_row, self.agent_col):
+                    g["status"] = "collected"
+                    reward += 0.2
+                    success = True
+                    self._agent_held_garbage += 1
+                    self._env_garbage_count -= 1
+
+            self._agent_battery -= action_cost
+            if not success:
+                    reward = -0.1
+        
+        # Dropoff
+        elif action == 6:
+            if self.render_mode == 'human': print("Drop off")
+            success = False
+            if (self.agent_row, self.agent_col) == self._trash_bin_position:
                 for g in self._garbage:
                     if g["status"] == "collected":
                         g["status"] = "deposited"
-                        reward += 0.5*self._agent_held_garbage
-                self._agent_held_garbage=0
-            else:
-                reward -= 0.05
-            self._agent_Battery-=0.1
+                        reward += 0.5
+                        success = True
+                        self._agent_held_garbage = 0
+            
+            self._agent_battery -= action_cost
+            if not success:
+                    reward = -0.1
         
-
-        #Map cleared
-        if(self._env_garbage_count==0 and self._agent_held_garbage == 0):
+        # Map cleared
+        if all(g["status"] == "deposited" for g in self._garbage) and not terminated:
             terminated = True
             reward += 1
-        
+
         #Battery died
-        elif(self._agent_Battery<=0):
+        elif self._agent_battery <= 0 and not terminated:
             terminated = True
             reward -= 1
         
@@ -251,7 +224,7 @@ class GridWorldEnv(gym.Env):
         if self.render_mode == 'human':
             self._render_frame()
 
-        return self._get_obs(), reward, terminated, self.iteration_count >= MAX_ITERATIONS, self._get_info()
+        return self.encode_state(), reward, terminated
 
 
     ###########################################################################################################
@@ -264,26 +237,43 @@ class GridWorldEnv(gym.Env):
             (int(pix_square_size * 0.8), int(pix_square_size * 0.8))
         )
 
-        agent_pos = (self._agent_location + 0.5) * pix_square_size
-        rect = agent_img.get_rect(center=agent_pos)
-        
-        canvas.blit(agent_img, rect)
-    
-    def _render_objects(self, canvas, square_size):
-        object_spaces = np.argwhere(np.isin(self.map, ['c', 'b','t','l']))
+        # Compute agent position using row and column
+        agent_x = (self.agent_col + 0.5) * pix_square_size
+        agent_y = (self.agent_row + 0.5) * pix_square_size
+        agent_pos = (agent_x, agent_y)
 
-        for row, col in object_spaces:
-            object_type = self.map[row][col]
-            if object_type in OBJECT_ASSETS:
-                landscape = pygame.transform.scale(
-                    OBJECT_ASSETS[object_type],
-                    (square_size, square_size)
-                )
-                canvas.blit(landscape, (square_size * col, square_size * row))
+        rect = agent_img.get_rect(center=agent_pos)
+        canvas.blit(agent_img, rect)
+
+
+    def _render_objects(self, canvas, square_size):
+        # Objects
+        recharge = pygame.image.load('./fa_env/env_assets/charge_1.png')
+        trashbin = pygame.image.load('./fa_env/env_assets/trashcan_1.png')
+        bush = pygame.image.load('./fa_env/env_assets/obstacle_10.png'), 
+        garbage = pygame.image.load('./fa_env/env_assets/garbage.png')
+
+        # Recharge
+        canvas.blit(
+            pygame.transform.scale(recharge,(square_size, square_size)),
+            (square_size * self._charging_station_position[1], square_size * self._charging_station_position[0])
+            )
+        # Bin
+        canvas.blit(
+            pygame.transform.scale(trashbin,(square_size, square_size)),
+            (square_size * self._trash_bin_position[1], square_size * self._trash_bin_position[0])
+            )
+
+        for g in self._garbage:
+            if g["status"] == "uncollected":
+                canvas.blit(
+                    pygame.transform.scale(garbage,(square_size, square_size)),
+                    (square_size * g["location"][1], square_size * g["location"][0])
+                    )
 
     def _render_battery_text(self, canvas, text_color):
         font = pygame.font.SysFont(None, 24)
-        battery_text = font.render(f"Battery: {self._agent_Battery:.2f}%", True, text_color)
+        battery_text = font.render(f"Battery: {self._agent_battery:.2f}%", True, text_color)
         canvas.blit(battery_text, (10,5))
     
     def _render_trash_text(self, canvas, text_color):
@@ -311,7 +301,7 @@ class GridWorldEnv(gym.Env):
         canvas.blit(background, (0, 0))
 
         # The size of a single grid square in pixels
-        pix_square_size = ( self.window_size / len(self.map))  
+        pix_square_size = ( self.window_size / len(self.terrain_map))  
 
         # Reder Assets
         self._render_objects(canvas, pix_square_size)
