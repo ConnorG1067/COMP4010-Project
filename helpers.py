@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from fa_env.envs.grid_world import GridWorldEnv
 from scipy.spatial.distance import cdist
 from datetime import datetime
+from main import q_learning, q_learning_fa, sarsa
 
 
 ###########################################################################################################
@@ -50,17 +51,6 @@ def q_learning_experiments(env, episodes=1000):
     filename = f"q_learning_returns_{timestamp}.png"
     plt.savefig(filename)
 
-
-
-
-
-
-
-
-
-
-
-
 ###########################################################################################################
 # Helper Classes
 ###########################################################################################################
@@ -89,27 +79,26 @@ class RbfFeaturizer():
 ###########################################################################################################
 # Helper Functions
 ###########################################################################################################
-def fetch_model(is_training, env, algorithm):
-    if is_training or algorithm == "":
+def fetch_model(is_training, env, path):
+    if is_training or path == "":
         q = np.zeros((env.observation_space.n, env.action_space.n))
-        #q = np.random.randn(env.observation_space.n, env.action_space.n) * 0.01
     else:
-        with open(f"./{algorithm}_model.pkl", "rb") as f:
+        with open(path, "rb") as f:
             q = pkl.load(f)
     return q
 
-def update_model(q,algorithm):
-    with open(f"{algorithm}_model.pkl", "wb") as f:
+def update_model(q,path):
+    with open(path, "wb") as f:
             pkl.dump(q, f)
 
-def plot_run(episodes, rewards_per_episode, algorithm):
+def plot_run(episodes, rewards_per_episode, path):
     sum_rewards = np.zeros(episodes)
     for t in range(episodes):
         sum_rewards[t] = np.sum(rewards_per_episode[max(0, t-100):(t+1)])
 
     plt.plot(sum_rewards)
-    plt.title(f"Collection Robot \"{algorithm}\"Progress")
+    plt.title(f"Collection Robot \"{path.split("/")[1]}\"Progress")
     plt.xlabel("Episode")
     plt.ylabel("Total Reward (last 100 avg)")
-    plt.savefig(f'{algorithm}_model.png')
+    plt.savefig(path)
     plt.close()

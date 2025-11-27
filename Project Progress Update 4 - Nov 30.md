@@ -15,32 +15,33 @@
 
 
 #### Code Contributions 
-
-
-
 @ https://github.com/ConnorG1067/COMP4010-Project
 
-
-
 ###### Connor
-* 
+
+* Simplified the environment with Jackson
+* Worked on algorithms, tested environment control variables, and adjusted the reward structure with Jackson
 
 
 
 ###### Jackson
 
-* Attempted to figure out how repesent our obsvertion space in away that Qlearning could handle
-* Went to office hours learnt Qlearning was to basic for env, simplify or implemnt more complex algorthims
-* Work
+* Tried to figure out how to represent our observation space in a way that Q-learning could handle
+* Went to office hours and learned that Q-learning is too simple for our environment — so we either needed to simplify the environment or use more advanced algorithms.
+* Simplified the environment with Connor
+* Worked on algorithms, tested environment control variables, and adjusted the reward structure with Connor
 
 
 ###### Shawnia
+
 * Worked on implenting DQN
 
 ###### Tony
+
 * Implmented Sarsa
 
 #### Next 2 weeks
+
 * Write our Report
 
 

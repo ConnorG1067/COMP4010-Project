@@ -5,15 +5,16 @@
 
 #Imports
 import numpy as np
+import pickle as pkl
 import matplotlib.pyplot as plt
 from fa_env.envs.grid_world import GridWorldEnv
 from datetime import datetime
-from ProjectHelpers import fetch_model, update_model, plot_run, q_learning_experiments
+import helpers
 
 
 # Algorithms
-def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
-    q = fetch_model(is_training, env, "q_learning")
+def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path="", fig_path=""): 
+    q = helpers.fetch_model(is_training, env, model_path)
     rewards_per_episode = np.zeros(episodes)
 
     for i in range(episodes):
@@ -23,7 +24,7 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
         truncated = False
         total_reward = 0
         if(i%1000==0):
-            print(i, end=", ")
+            print(i)
 
         while not truncated and not terminated:
             # Epsilon greedy algorithm
@@ -52,9 +53,10 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
         rewards_per_episode[i] = total_reward
 
     if is_training: 
-        update_model(q,"q_learning")
+        helpers.update_model(q,f"./models/q-learning/q_learning_iteration_{episodes}.pkl")
     
-    print()
+    helpers.plot_run(episodes, rewards_per_episode, fig_path)
+
     return q, rewards_per_episode
 
 
@@ -93,13 +95,13 @@ def q_learning_fa(is_training, env, featurizer, discount_factor, learning_rate_a
         
         rewards_per_episode[i] = total_reward
 
-    plot_run(episodes, rewards_per_episode, "q_learning_fa")
+    helpers.plot_run(episodes, rewards_per_episode, "q_learning_fa")
         
 
 
 
 def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
-    q = fetch_model(is_training, env, "sarsa")
+    q = helpers.fetch_model(is_training, env, "sarsa")
     rewards_per_episode = np.zeros(episodes)
 
     for i in range(episodes):
@@ -147,10 +149,10 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
 
         rewards_per_episode[i] = rewards
 
-    plot_run(episodes, rewards_per_episode, "sarsa")
+    helpers.plot_run(episodes, rewards_per_episode, "sarsa")
 
     if is_training: 
-        update_model(q,"sarsa")
+        helpers.update_model(q,"sarsa")
 
 
 
@@ -160,7 +162,7 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
 
 
 
-def run(episodes, is_training=True, render=False):
+def run(episodes, is_training=True, render=False, model_path="", fig_path=""):
     env = GridWorldEnv(render_mode="human" if render else None)
     # np.random.seed(101194261)
 
@@ -172,19 +174,34 @@ def run(episodes, is_training=True, render=False):
     max_model_steps = 10
 
     # Algorithms
-    # q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes)
+    q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path, fig_path)
     # sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes)
     
     
     # Control Variables Experiments
-    q_learning_experiments(env, episodes)
+    # helpers.q_learning_experiments(env, episodes)
 
     env.close()
 
 
-#Main
 if __name__ == "__main__":
-    run(10000, render=False, is_training=True)
-    #run(3, render=True, is_training=False)
+    iterations = 10000
+    testing = True
+
+    if(testing):
+        run(
+            iterations, 
+            render=False, 
+            is_training=True, 
+            model_path=f"./models/q-learning/q_learning_iteration_{iterations}.pkl",
+            fig_path=f"./plots/q-learning/q_learning_iteration_{iterations}.png"
+        )
+    else:
+        run(
+            3, 
+            render=True, 
+            is_training=False, 
+            model_path=f"./models/q-learning/q_learning_iteration_{iterations}.pkl",
+        )
 
 
