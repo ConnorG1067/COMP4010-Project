@@ -29,7 +29,7 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
         while not truncated and not terminated:
             # Epsilon greedy algorithm
             if(is_training and np.random.rand() < epsilon):
-                action = np.random.randint(0, env.action_space.n)
+                action = np.random.randint(0, env.action_space.n - 1)
             else:
                 action = np.argmax(q[state])
 
@@ -153,13 +153,6 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
 
     if is_training: 
         helpers.update_model(q,"sarsa")
-
-
-
-
-
-
-
 
 
 def run(episodes, is_training=True, render=False, model_path="", fig_path=""):

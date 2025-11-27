@@ -97,7 +97,7 @@ def plot_run(episodes, rewards_per_episode, path):
         sum_rewards[t] = np.sum(rewards_per_episode[max(0, t-100):(t+1)])
 
     plt.plot(sum_rewards)
-    plt.title(f"Collection Robot \"{path.split("/")[1]}\"Progress")
+    plt.title(f"Collection Robot {path.split("/")[2]} Progress")
     plt.xlabel("Episode")
     plt.ylabel("Total Reward (last 100 avg)")
     plt.savefig(path)
