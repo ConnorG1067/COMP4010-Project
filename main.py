@@ -153,6 +153,8 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
     if is_training: 
         update_model(q,"sarsa")
 
+def ActorCritic(env, discountFactor, actorStepSize, criticStepSize, maxEpisodes, evaluateEvery)
+
 
 def run(episodes, is_training=True, render=False):
     env = GridWorldEnv(render_mode="human" if render else None)
