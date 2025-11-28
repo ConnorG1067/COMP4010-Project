@@ -154,7 +154,7 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
         update_model(q,"sarsa")
 
 def ActorCritic(env, discountFactor, actorStepSize, criticStepSize, maxEpisodes, evaluateEvery):
-    
+    theta = 
 
 
 def run(episodes, is_training=True, render=False):
