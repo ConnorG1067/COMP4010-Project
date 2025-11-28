@@ -174,7 +174,7 @@ class GridWorldEnv(gym.Env):
         elif action == 4:
             if self.render_mode == 'human': print("Recharge")
             if (self.agent_row, self.agent_col) == self._charging_station_position:
-                self._agent_battery+=5
+                self._agent_battery = min(self._agent_battery+5, self._agent_max_battery)
                 # if self.battery_state() == 0:
                 #     reward += 0.1
                 # elif self.battery_state() == 1:

@@ -1,4 +1,5 @@
 import numpy as np
+# import jax.numpy as jnp
 import pickle as pkl
 import matplotlib.pyplot as plt
 from fa_env.envs.grid_world import GridWorldEnv
@@ -7,53 +8,6 @@ from datetime import datetime
 from main import q_learning, q_learning_fa, sarsa
 
 
-###########################################################################################################
-# Experiment Classes
-###########################################################################################################
-
-def q_learning_experiments(env, episodes=1000):
-    parameters = [
-        {"learning_rate_a": 0.1, "discount_factor": 0.9, "epsilon": 1.0, "epsilon_decay_rate" : 0.0001},
-        {"learning_rate_a": 0.05, "discount_factor": 0.9, "epsilon": 1.0, "epsilon_decay_rate" : 0.0001},
-        {"learning_rate_a": 0.01, "discount_factor": 0.9, "epsilon": 1.0, "epsilon_decay_rate" : 0.0001}
-    ]
-
-    plt.figure(figsize=(10, 6))
-
-    for params in parameters:
-        print(params)
-        _, rewards = q_learning(
-            is_training=True,
-            env=env,
-            learning_rate_a=params["learning_rate_a"],
-            discount_factor=params["discount_factor"],
-            epsilon=params["epsilon"],
-            epsilon_decay_rate=params["epsilon_decay_rate"],
-            episodes=episodes
-        )
-
-        # Smooth rewards using moving average
-        window = 20
-        smoothed_rewards = np.convolve(rewards, np.ones(window)/window, mode='valid')
-
-        label = f"LR={params['learning_rate_a']}, DF={params['discount_factor']}"
-        plt.plot(smoothed_rewards, label=label)
-
-    plt.title("Q-Learning Performance with Different Parameters")
-    plt.xlabel("Episodes")
-    plt.ylabel("Average Reward")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-
-    # Save plot with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"q_learning_returns_{timestamp}.png"
-    plt.savefig(filename)
-
-###########################################################################################################
-# Helper Classes
-###########################################################################################################
 class RbfFeaturizer():
     '''
         This class converts the raw state/obvervation features into
@@ -75,10 +29,6 @@ class RbfFeaturizer():
         dist = cdist(z, self._centers)
         return np.exp(- (dist) ** 2).flatten()
 
-
-###########################################################################################################
-# Helper Functions
-###########################################################################################################
 def fetch_model(is_training, env, path):
     if is_training or path == "":
         q = np.zeros((env.observation_space.n, env.action_space.n))
@@ -86,6 +36,22 @@ def fetch_model(is_training, env, path):
         with open(path, "rb") as f:
             q = pkl.load(f)
     return q
+
+def fetch_model_fa(is_training, env, path, featurizer):
+    if is_training or path == "":
+        W = np.random.randn(featurizer.n_features, env.action_space.n) * 0.01
+    else:
+        with open(path, "rb") as f:
+            W = pkl.load(f)
+    return W
+
+def fetch_model_ac(is_training, env, path, featurizer):
+    if is_training or path == "":
+        W = np.random.randn(featurizer.n_features, env.action_space.n) * 0.01
+    else:
+        with open(path, "rb") as f:
+            W = pkl.load(f)
+    return W
 
 def update_model(q,path):
     with open(path, "wb") as f:
@@ -102,3 +68,20 @@ def plot_run(episodes, rewards_per_episode, path):
     plt.ylabel("Total Reward (last 100 avg)")
     plt.savefig(path)
     plt.close()
+
+# TODO: Finish mine didnt work properly so not using it
+def  softmaxProb(x, Theta):
+    probs = 0
+    return probs
+
+# TODO: Finish mine didnt work properly so not using it
+def softmaxPolicy(x, Theta):
+    probs = softmaxProb(x, Theta)
+    a = 0
+    return a
+
+# TODO: Finish mine didnt work properly so not using it
+def logSoftmaxPolicyGradient(x, a, Theta):
+    probs = softmaxProb(x, Theta)
+    gradient = 0
+    return gradient

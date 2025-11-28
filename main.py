@@ -5,6 +5,7 @@
 
 #Imports
 import numpy as np
+# import jax.numpy as jnp
 import pickle as pkl
 import matplotlib.pyplot as plt
 from fa_env.envs.grid_world import GridWorldEnv
@@ -44,30 +45,26 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
 
             state = new_state
 
-        # Update exploration rate, then lowering learning rate once fully greedy
-        # if(is_training):
-            # epsilon = max(epsilon * epsilon_decay_rate, 0.01)
-            # if epsilon == 0:
-            #     learning_rate_a = 0.0001  # Lower learning rate once fully greedy
+        #Update exploration rate, then lowering learning rate once fully greedy
+        epsilon = max(epsilon - epsilon_decay_rate, 0) # fast linear decline
+        #epsilon = max(epsilon * epsilon_decay_rate, 0.01)  # slow exponential decline
+        if epsilon == 0:
+            learning_rate_a = 0.0001  # Lower learning rate once fully greedy
 
         rewards_per_episode[i] = total_reward
 
     if is_training: 
-        helpers.update_model(q,f"./models/q-learning/q_learning_iteration_{episodes}.pkl")
-    
-    helpers.plot_run(episodes, rewards_per_episode, fig_path)
+        helpers.update_model(q, model_path)
+        helpers.plot_run(episodes, rewards_per_episode, fig_path)
 
-    return q, rewards_per_episode
-
-
-def q_learning_fa(is_training, env, featurizer, discount_factor, learning_rate_a, epsilon, epsilon_decay_rate, episodes):
-    W = np.random.randn(featurizer.n_features, env.action_space.n) * 0.01
-    #q = fetch_model(is_training, env, "q_learningfa")
+def q_learning_fa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path="", fig_path=""):
+    #W = np.random.randn(featurizer.n_features, env.action_space.n) * 0.01
+    W = helpers.fetch_model_fa(is_training, env, model_path, helpers.featurizer)
     rewards_per_episode = np.zeros(episodes)
     
     for i in range(1, episodes + 1):
         s = env.reset()[0]
-        s = featurizer.featurize(s) # convert to a feature vector
+        s = helpers.featurizer.featurize(s) # convert to a feature vector
         terminated = truncated = False
         total_reward = 0
         while not (terminated or truncated):
@@ -77,7 +74,7 @@ def q_learning_fa(is_training, env, featurizer, discount_factor, learning_rate_a
                 a = a = np.argmax(W.T @ s)
 
             next_state, reward, terminated, truncated, _ = env.step(a)
-            feature_v = featurizer.featurize(next_state)
+            feature_v = helpers.featurizer.featurize(next_state)
             total_reward += reward
 
             if(is_training):
@@ -89,19 +86,19 @@ def q_learning_fa(is_training, env, featurizer, discount_factor, learning_rate_a
             s = feature_v
         
         # Update exploration rate, then lowering learning rate once fully greedy
-        epsilon = max(epsilon - epsilon_decay_rate, 0)
+        epsilon = max(epsilon - epsilon_decay_rate, 0) # fast linear decline
+        #epsilon = max(epsilon * epsilon_decay_rate, 0.01)  # slow exponential decline
         if epsilon == 0:
             learning_rate_a = 0.0001  # Lower learning rate once fully greedy
         
         rewards_per_episode[i] = total_reward
 
-    helpers.plot_run(episodes, rewards_per_episode, "q_learning_fa")
-        
+    if is_training: 
+        helpers.update_model(W, model_path)
+        helpers.plot_run(episodes, rewards_per_episode, fig_path)
 
-
-
-def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
-    q = helpers.fetch_model(is_training, env, "sarsa")
+def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path="", fig_path=""): 
+    q = helpers.fetch_model(is_training, env, model_path)
     rewards_per_episode = np.zeros(episodes)
 
     for i in range(episodes):
@@ -142,59 +139,121 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
             action = new_action
 
         # Update exploration rate, then lowering learning rate once fully greedy
-        # if(is_training):
-            # epsilon = max(epsilon * epsilon_decay_rate, 0.01)
-            # if epsilon == 0:
-            #     learning_rate_a = 0.0001  # Lower learning rate once fully greedy
+        if(is_training):
+            epsilon = max(epsilon * epsilon_decay_rate, 0.01)
+            if epsilon == 0:
+                learning_rate_a = 0.0001  # Lower learning rate once fully greedy
 
         rewards_per_episode[i] = rewards
 
-    helpers.plot_run(episodes, rewards_per_episode, "sarsa")
+    if is_training: 
+        helpers.update_model(q,model_path)
+        helpers.plot_run(episodes, rewards_per_episode, fig_path)
+
+
+#actor_critic(is_training, env, gamma=0.99, actor_step_size=0.005, critic_step_size=0.005, episodes, model_path, fig_path):
+def actor_critic(is_training, env, discount_factor, episodes, model_path, fig_path, actor_step_size=0.005, critic_step_size=0.005):
+    Theta = np.random.randn(helpers.featurizer.n_features, env.action_space.n) * 0.01
+    w = np.random.randn(helpers.featurizer.n_features) * 0.01
+
+    rewards_per_episode = np.zeros(episodes)
+    for i in range(1, episodes + 1):
+        s = env.reset()[0]
+        s = helpers.featurizer.featurize(s)
+        terminated = truncated = False
+        actor_discount = 1
+        
+        while not (terminated or truncated):
+            a = helpers.softmaxPolicy(s, Theta)
+
+            next_state, reward, terminated, truncated, _ = env.step(a)
+            feature_v = helpers.featurizer.featurize(next_state)
+
+            #(ST;w) ≐ 0
+            #TD_error = R + γ(Max(qhat(S'.a'))) - qhat(S.A)
+            #W.T was multipule both state and action, w just state
+            next_a_value = jnp.dot(w, feature_v)
+            td_error = reward + discount_factor * next_a_value - jnp.dot(w, s)
+
+            # Semi-grad update critic      w ← w + αw ⋅ δt ⋅ ∇vhat(St ; w)
+            w = w + critic_step_size * td_error * s
+
+            # Policy grad update actor     θ ← θ + αθ ⋅ δt ⋅ γt ⋅ ∇log π(At|St;θ)
+            gradient = helpers.logSoftmaxPolicyGradient(s, a, Theta)
+            Theta = Theta + actor_step_size * td_error * actor_discount * gradient
+
+            s = feature_v
+            actor_discount *= discount_factor
+        
 
     if is_training: 
-        helpers.update_model(q,"sarsa")
+        helpers.update_model(q,model_path)
+        helpers.plot_run(episodes, rewards_per_episode, fig_path)
 
 
-def run(episodes, is_training=True, render=False, model_path="", fig_path=""):
+def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, is_training=True, render=False, model_path="", fig_path=""):
     env = GridWorldEnv(render_mode="human" if render else None)
-    # np.random.seed(101194261)
-
-    # Algorithm control variables
-    learning_rate_a = 0.1
-    discount_factor = 0.9
-    epsilon = 1.0
-    epsilon_decay_rate = 0.0001
-    max_model_steps = 10
 
     # Algorithms
-    q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path, fig_path)
-    # sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes)
+    if("q_learning" in model_path):
+        q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path, fig_path)
+    elif("q_learning_fa" in model_path):
+        q_learning_fa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path, fig_path)
+    elif("sarsa" in model_path):
+        sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path, fig_path)
+    elif("actor_critic" in model_path):
+        actor_critic(is_training, env, discount_factor, episodes, model_path, fig_path, learning_rate_a, actor_step_size=0.005) #learning_rate_a
+    elif("dqn" in model_path):
+        pass
     
-    
-    # Control Variables Experiments
-    # helpers.q_learning_experiments(env, episodes)
+    # TODO : AFTER EVERYTHING EXPERIMENTS AND EASE OF PROGRAM SHIT
 
     env.close()
 
 
 if __name__ == "__main__":
-    iterations = 10000
-    testing = True
-
+    iterations = 15000
+    testing = False
+ 
     if(testing):
-        run(
-            iterations, 
-            render=False, 
-            is_training=True, 
-            model_path=f"./models/q-learning/q_learning_iteration_{iterations}.pkl",
-            fig_path=f"./plots/q-learning/q_learning_iteration_{iterations}.png"
-        )
+        algorithms = ["q_learning", "sarsa", "q_learning_fa"]
+        step_size_list = [0.0005, 0.001, 0.005, 0.01, 0.1]
+        discount_factor = 0.9
+        epsilon_list = [0.9, 0.95, 1]
+        epsilon_decay_rate = 0.0001
+
+        for algorithm in algorithms:
+            for step_size in step_size_list:
+                for epsilon in epsilon_list:
+                    run(
+                        iterations, 
+                        learning_rate_a = step_size,
+                        discount_factor = discount_factor,
+                        epsilon = epsilon,
+                        epsilon_decay_rate = epsilon_decay_rate,  
+                        render = False, 
+                        is_training = True, 
+                        model_path = f"./models/{algorithm}/{algorithm}_iter_{iterations}_lr_{step_size}_df_{discount_factor}_e_{epsilon}_edr_{epsilon_decay_rate}.pkl",
+                        fig_path = f"./plots/{algorithm}/{algorithm}_iter_{iterations}_lr_{step_size}_df_{discount_factor}_e_{epsilon}_edr_{epsilon_decay_rate}.png",
+                    )
     else:
+        # When running with render mode pick the model path to run with
+        running_model_path = "./models/q_learning/q_learning_iter_15000_lr_0.1_df_0.9_e_1_edr_0.0001.pkl"
+        
+        learning_rate_a = 0.1
+        discount_factor = 0.9
+        epsilon = 1.0
+        epsilon_decay_rate = 0.0001
+
         run(
-            3, 
+            3,
+            learning_rate_a=learning_rate_a,
+            discount_factor=discount_factor,
+            epsilon=epsilon,
+            epsilon_decay_rate=epsilon_decay_rate,  
             render=True, 
             is_training=False, 
-            model_path=f"./models/q-learning/q_learning_iteration_{iterations}.pkl",
+            model_path=running_model_path,
         )
 
 
