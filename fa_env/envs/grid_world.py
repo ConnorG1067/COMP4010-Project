@@ -94,6 +94,81 @@ class GridWorldEnv(gym.Env):
         elif self._agent_battery <= 85: return 2  # High
         else: return 3  # Max
 
+    def _get_ac_state(self):
+        """Helper to construct the Actor-Critic feature vector"""
+        status_map = {'uncollected': 0, 'collected': 1, 'deposited': 2}
+        
+        # Features: [Row, Col, Battery, HeldGarbage, Garbage1_Status, Garbage2_Status, Garbage3_Status]
+        state = [
+            self.agent_row / (self.grid_rows - 1),     # Normalized Row
+            self.agent_col / (self.grid_cols - 1),     # Normalized Col
+            self._agent_battery / self._agent_max_battery, # Normalized Battery
+            1.0 if self._agent_held_garbage > 0 else 0.0   # Binary Held Garbage
+        ]
+        
+        # Add status of each piece of garbage
+        for g in self._garbage:
+            state.append(status_map[g["status"]] / 2.0) # Normalize 0,1,2 -> 0.0, 0.5, 1.0
+
+        return np.array(state, dtype=np.float32)
+
+    # -----------------------------------------------------------
+    # STANDARD RESET (For Q-Learning / SARSA)
+    # Returns: np.array([DiscreteIndex])
+    # -----------------------------------------------------------
+    def reset(self, *, seed=None, options=None):
+        self.ac_mode = False # Disable AC mode
+        
+        super().reset(seed=seed)
+        while True:
+            r = self.np_random.integers(0, self.grid_rows)
+            c = self.np_random.integers(0, self.grid_cols)
+            if self.terrain_map[r][c] not in ['w', 'b']:
+                self.agent_row, self.agent_col = r, c
+                break
+        
+        self._iteration_count = 0
+        self._agent_battery = self._agent_max_battery
+        self._env_garbage_count = 3
+        self._agent_held_garbage = 0
+
+        for g in self._garbage:
+            g["status"] = "uncollected"
+        
+        if self.render_mode == "human":
+            self._render_frame()
+            
+        return np.array([self.encode_state()], dtype=np.float32), {}
+
+    # -----------------------------------------------------------
+    # ACTOR-CRITIC RESET
+    # Returns: np.array([Row, Col, Battery, ...])
+    # -----------------------------------------------------------
+    def ac_reset(self, *, seed=None, options=None):
+        self.ac_mode = True # Enable AC mode for subsequent steps
+        
+        super().reset(seed=seed)
+        while True:
+            r = self.np_random.integers(0, self.grid_rows)
+            c = self.np_random.integers(0, self.grid_cols)
+            if self.terrain_map[r][c] not in ['w', 'b']:
+                self.agent_row, self.agent_col = r, c
+                break
+        
+        self._iteration_count = 0
+        self._agent_battery = self._agent_max_battery
+        self._env_garbage_count = 3
+        self._agent_held_garbage = 0
+
+        for g in self._garbage:
+            g["status"] = "uncollected"
+        
+        if self.render_mode == "human":
+            self._render_frame()
+            
+        # Return the feature vector
+        return self._get_ac_state(), {}
+
     def reset(self):
         while True:
             r = random.randint(0, self.grid_rows - 1)

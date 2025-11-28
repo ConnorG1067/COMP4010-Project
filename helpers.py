@@ -1,7 +1,7 @@
 import numpy as np
-# import jax.numpy as jnp
 import pickle as pkl
 import matplotlib.pyplot as plt
+import jax.numpy as jnp
 from fa_env.envs.grid_world import GridWorldEnv
 from scipy.spatial.distance import cdist
 from datetime import datetime
@@ -18,6 +18,7 @@ class RbfFeaturizer():
     def __init__(self, env, n_features=100):
         centers = np.array([env.observation_space.sample()
                             for _ in range(n_features)])
+        print(centers)
         self._mean = np.mean(centers, axis=0, keepdims=True)
         self._std = np.std(centers, axis=0, keepdims=True)
         self._centers = (centers - self._mean) / self._std
@@ -45,17 +46,26 @@ def fetch_model_fa(is_training, env, path, featurizer):
             W = pkl.load(f)
     return W
 
-def fetch_model_ac(is_training, env, path, featurizer):
+def fetch_ac_model(is_training, env, path, featurizer):
     if is_training or path == "":
-        W = np.random.randn(featurizer.n_features, env.action_space.n) * 0.01
+        Theta = np.random.randn(featurizer.n_features, env.action_space.n) * 0.01
+        w = np.random.randn(featurizer.n_features) * 0.01
+        return Theta, w
     else:
         with open(path, "rb") as f:
-            W = pkl.load(f)
-    return W
+            ac_dict = pkl.load(f)
+    return ac_dict['actor'], ac_dict['critic']
 
 def update_model(q,path):
     with open(path, "wb") as f:
             pkl.dump(q, f)
+
+def update_ac_model(Theta, w ,path):
+    with open(path, "wb") as f:
+            pkl.dump({
+                'actor'  : Theta,
+                'critic' : w
+            }, f)
 
 def plot_run(episodes, rewards_per_episode, path):
     sum_rewards = np.zeros(episodes)
@@ -70,18 +80,48 @@ def plot_run(episodes, rewards_per_episode, path):
     plt.close()
 
 # TODO: Finish mine didnt work properly so not using it
-def  softmaxProb(x, Theta):
-    probs = 0
-    return probs
+def softmaxProb(x, Theta):
+    h_s = jnp.dot(Theta.T, x)
+
+    exponents = jnp.exp(h_s)
+    sum_exp = jnp.sum(exponents)
+    
+    return exponents / sum_exp
 
 # TODO: Finish mine didnt work properly so not using it
 def softmaxPolicy(x, Theta):
-    probs = softmaxProb(x, Theta)
-    a = 0
-    return a
+    probabilities = softmaxProb(x, Theta)
+
+    probabilities = np.array(probabilities, dtype=np.float64)
+    prob_sum = np.sum(probabilities)
+    probabilities = probabilities / prob_sum
+
+    return np.random.choice(len(probabilities), p=probabilities)
 
 # TODO: Finish mine didnt work properly so not using it
 def logSoftmaxPolicyGradient(x, a, Theta):
     probs = softmaxProb(x, Theta)
-    gradient = 0
+    
+    actions_n = Theta.shape[1]
+    one_hot = np.zeros(actions_n)
+    one_hot[a] = 1
+    
+    delta_vec = one_hot - probs
+    gradient = jnp.outer(x, delta_vec)
+    
     return gradient
+
+def check_gradient(env):
+    featurizer = RBFStateFeaturizer(env, 100)
+    s = featurizer.featurize(env.observation_space.sample())
+    a = env.action_space.sample()
+    Theta = np.ones([featurizer.n_features, env.action_space.n])  # or any other initialization
+    analytic_grads = logSoftmaxPolicyGradient(s, a, Theta)
+    match_grad = logSoftmaxGradChecker(s, a, Theta, softmaxProb, analytic_grads)
+    print(f'Gradient matched? {match_grad}')
+
+def logSoftmaxGradChecker(s, a, Theta, softmaxProb, analytic_grads):
+    def grad_test_func(Theta):
+        return jnp.log(softmaxProb(s, Theta)[a])
+    auto_grads = jax.grad(grad_test_func)(Theta)
+    return np.allclose(analytic_grads, auto_grads)

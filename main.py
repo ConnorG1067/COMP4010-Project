@@ -5,7 +5,7 @@
 
 #Imports
 import numpy as np
-# import jax.numpy as jnp
+import jax.numpy as jnp
 import pickle as pkl
 import matplotlib.pyplot as plt
 from fa_env.envs.grid_world import GridWorldEnv
@@ -59,11 +59,12 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
 
 def q_learning_fa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path="", fig_path=""):
     #W = np.random.randn(featurizer.n_features, env.action_space.n) * 0.01
-    W = helpers.fetch_model_fa(is_training, env, model_path, helpers.featurizer)
+    featurizer = helpers.RbfFeaturizer(env, 100)
+    W = helpers.fetch_model_fa(is_training, env, model_path, featurizer)
     rewards_per_episode = np.zeros(episodes)
     
     for i in range(1, episodes + 1):
-        s = env.reset()[0]
+        s = env.reset()
         s = helpers.featurizer.featurize(s) # convert to a feature vector
         terminated = truncated = False
         total_reward = 0
@@ -152,14 +153,18 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
 
 
 #actor_critic(is_training, env, gamma=0.99, actor_step_size=0.005, critic_step_size=0.005, episodes, model_path, fig_path):
-def actor_critic(is_training, env, discount_factor, episodes, model_path, fig_path, actor_step_size=0.005, critic_step_size=0.005):
-    Theta = np.random.randn(helpers.featurizer.n_features, env.action_space.n) * 0.01
-    w = np.random.randn(helpers.featurizer.n_features) * 0.01
+def actor_critic(is_training, env, discount_factor, episodes, actor_step_size=0.005, critic_step_size=0.005, model_path="", fig_path=""):
+    featurizer = helpers.RBFStateFeaturizer(env, 100)
+    Theta, w = helpers.fetch_ac_model(is_training, env, model_path, featurizer)
 
     rewards_per_episode = np.zeros(episodes)
-    for i in range(1, episodes + 1):
-        s = env.reset()[0]
-        s = helpers.featurizer.featurize(s)
+    for i in range(1, episodes):
+        s = env.ac_reset()[0]
+        s = featurizer.featurize(s)
+
+        
+        rewards = 0
+
         terminated = truncated = False
         actor_discount = 1
         
@@ -167,27 +172,41 @@ def actor_critic(is_training, env, discount_factor, episodes, model_path, fig_pa
             a = helpers.softmaxPolicy(s, Theta)
 
             next_state, reward, terminated, truncated, _ = env.step(a)
-            feature_v = helpers.featurizer.featurize(next_state)
 
-            #(ST;w) ≐ 0
-            #TD_error = R + γ(Max(qhat(S'.a'))) - qhat(S.A)
-            #W.T was multipule both state and action, w just state
-            next_a_value = jnp.dot(w, feature_v)
-            td_error = reward + discount_factor * next_a_value - jnp.dot(w, s)
 
-            # Semi-grad update critic      w ← w + αw ⋅ δt ⋅ ∇vhat(St ; w)
-            w = w + critic_step_size * td_error * s
+            rewards += reward
 
-            # Policy grad update actor     θ ← θ + αθ ⋅ δt ⋅ γt ⋅ ∇log π(At|St;θ)
-            gradient = helpers.logSoftmaxPolicyGradient(s, a, Theta)
-            Theta = Theta + actor_step_size * td_error * actor_discount * gradient
+            feature_v = featurizer.featurize(next_state)
+
+            if(is_training):
+                #(ST;w) ≐ 0
+                #TD_error = R + γ(Max(qhat(S'.a'))) - qhat(S.A)
+                #W.T was multipule both state and action, w just state
+                next_a_value = jnp.dot(w, feature_v)
+                td_error = reward + discount_factor * next_a_value - jnp.dot(w, s)
+
+                # Semi-grad update critic      w ← w + αw ⋅ δt ⋅ ∇vhat(St ; w)
+                w = w + critic_step_size * td_error * s
+
+                # Policy grad update actor     θ ← θ + αθ ⋅ δt ⋅ γt ⋅ ∇log π(At|St;θ)
+                gradient = helpers.logSoftmaxPolicyGradient(s, a, Theta)
+                Theta = Theta + actor_step_size * td_error * actor_discount * gradient
+
+                actor_discount *= discount_factor # should this remain in is training?
 
             s = feature_v
-            actor_discount *= discount_factor
+
+        # # Update exploration rate, then lowering learning rate once fully greedy
+        # if(is_training):
+        #     epsilon = max(epsilon * epsilon_decay_rate, 0.01)
+        #     if epsilon == 0:
+        #         learning_rate_a = 0.0001  # Lower learning rate once fully greedy
+
+        rewards_per_episode[i] = rewards
         
 
     if is_training: 
-        helpers.update_model(q,model_path)
+        helpers.update_ac_model(Theta, w, model_path)
         helpers.plot_run(episodes, rewards_per_episode, fig_path)
 
 
@@ -202,7 +221,7 @@ def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate,
     elif("sarsa" in model_path):
         sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path, fig_path)
     elif("actor_critic" in model_path):
-        actor_critic(is_training, env, discount_factor, episodes, model_path, fig_path, learning_rate_a, actor_step_size=0.005) #learning_rate_a
+        actor_critic(is_training, env, discount_factor, episodes, learning_rate_a, model_path=model_path, fig_path=fig_path) #learning_rate_a
     elif("dqn" in model_path):
         pass
     
@@ -212,11 +231,12 @@ def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate,
 
 
 if __name__ == "__main__":
-    iterations = 15000
-    testing = False
+    iterations = 500
+    testing = True
  
     if(testing):
-        algorithms = ["q_learning", "sarsa", "q_learning_fa"]
+        # algorithms = ["q_learning", "sarsa", "q_learning_fa"]
+        algorithms = ["actor_critic"]
         step_size_list = [0.0005, 0.001, 0.005, 0.01, 0.1]
         discount_factor = 0.9
         epsilon_list = [0.9, 0.95, 1]
@@ -238,7 +258,7 @@ if __name__ == "__main__":
                     )
     else:
         # When running with render mode pick the model path to run with
-        running_model_path = "./models/q_learning/q_learning_iter_15000_lr_0.1_df_0.9_e_1_edr_0.0001.pkl"
+        running_model_path = "./models/actor_critic/actor_critic_iter_25_lr_0.0005_df_0.9_e_1_edr_0.0001.pkl"
         
         learning_rate_a = 0.1
         discount_factor = 0.9
