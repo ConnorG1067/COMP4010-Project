@@ -37,6 +37,8 @@ def ACInitialize(states, actions):
     w = np.random.rand(actions)
     return states, actions
 
+def InitializeS()
+
 
 # Algorithms
 def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
