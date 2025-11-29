@@ -32,6 +32,11 @@ def plot_run(episodes, rewards_per_episode, algorithm):
 def convert_action_to_int(array):
     return (array[0] + 1) * (array[1] + 1) - 1
 
+def ACInitialize(states, actions):
+    Theta = np.random.rand(states, actions) # Initialize parameters / weights arbitrarily 
+    w = np.random.rand(actions)
+    return states, actions
+
 
 # Algorithms
 def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
