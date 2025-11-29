@@ -2,6 +2,7 @@ import numpy as np
 import pickle as pkl
 import matplotlib.pyplot as plt
 import jax.numpy as jnp
+import jax
 from fa_env.envs.grid_world import GridWorldEnv
 from scipy.spatial.distance import cdist
 from datetime import datetime
@@ -73,7 +74,7 @@ def plot_run(episodes, rewards_per_episode, path):
         sum_rewards[t] = np.sum(rewards_per_episode[max(0, t-100):(t+1)])
 
     plt.plot(sum_rewards)
-    plt.title(f"Collection Robot {path.split("/")[2]} Progress")
+    plt.title(f"Collection Robot {path.split('/')[2]} Progress")
     plt.xlabel("Episode")
     plt.ylabel("Total Reward (last 100 avg)")
     plt.savefig(path)
@@ -112,7 +113,7 @@ def logSoftmaxPolicyGradient(x, a, Theta):
     return gradient
 
 def check_gradient(env):
-    featurizer = RBFStateFeaturizer(env, 100)
+    featurizer = RbfFeaturizer()(env, 100)
     s = featurizer.featurize(env.observation_space.sample())
     a = env.action_space.sample()
     Theta = np.ones([featurizer.n_features, env.action_space.n])  # or any other initialization
