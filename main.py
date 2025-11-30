@@ -164,8 +164,8 @@ def ActorCritic(is_training, env, discount_factor, actor_step_size, critic_step_
             terminated = newTerminated
             truncated = newTruncated
             tdError = calc_td_error(reward, gamma, newValue, currentValue)    # Calculate squiggly thing (tdError)
-            w = update_critic(w, critic_step_size, tdError, state):    # Semi-grad update critic
-            Theta = update_actor(state, a, Theta, actor_step_size, tdError, actor_discount):    # Policy grad update actor
+            w = update_critic(w, critic_step_size, tdError, state)    # Semi-grad update critic
+            Theta = update_actor(state, a, Theta, actor_step_size, tdError, actor_discount)    # Policy grad update actor
             state = newState
             actor_discount *= gamma  
 
