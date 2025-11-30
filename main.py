@@ -32,23 +32,23 @@ def convert_action_to_int(array):
     return (array[0] + 1) * (array[1] + 1) - 1
 
 # Helper functions for actor-critic algorithm start here
-def softmax_prob(state, Theta):    # Calculate probabilities based on softmax
-    transposeTheta = np.transpose(Theta)    
+def softmax_prob(state, theta):    # Calculate probabilities based on softmax
+    transposeTheta = np.transpose(theta)    
     h = transposeTheta @ state
     m = np.amax(h)
     robustH = h - m
     probs = np.exp(robustH) / np.sum(np.exp(robustH))  
     return probs
 
-def softmax_policy(state, Theta):    # Acquire action sampled from softmax probabilities
-    probs = softmax_prob(state, Theta)
+def softmax_policy(state, theta):    # Acquire action sampled from softmax probabilities
+    probs = softmax_prob(state, theta)
     probsAmount = len(probs)
     a = np.random.choice(probsAmount, p=probs)  
     return a
 
-def log_softmax_policy_gradient(state, a, Theta):    # Calculate softmax policy gradient
-    probs = softmax_prob(state, Theta)
-    actions = Theta.shape[1]   
+def log_softmax_policy_gradient(state, a, theta):    # Calculate softmax policy gradient
+    probs = softmax_prob(state, theta)
+    actions = theta.shape[1]   
     temp = np.zeros(actions)
     temp[a] = 1
     negativeProbs = temp - probs
@@ -177,14 +177,14 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
         update_model(q,"sarsa")
 
 def ActorCritic(is_training, env, gamma, actor_step_size, critic_step_size, max_episodes, evaluate_every):
-    Theta = np.random.rand(states, actions)    # Initialize parameters / weights arbitrarily 
+    theta = np.random.rand(states, actions)    # Initialize parameters / weights arbitrarily 
     w = np.random.rand(actions)
     for i in range(1, max_episodes + 1):    # Loop forever (for each episode)
         s, info = env.reset()   # Initialize S0
         terminated = truncated = False
         actor_discount = 1
         while not (terminated or truncated):    # Loop for each step t = 0, 1, 2, ...., T of episode
-            a = softmax_policy(s, Theta) # Choose At ~ softmax
+            a = softmax_policy(s, theta) # Choose At ~ softmax
             newState, reward, terminated, truncated, moreInfo = env.step(a)   # Take action At, observe Rt+1, St+1
             sTranspose = np.transpose(s)
             currentValue = sTranspose @ w
@@ -197,8 +197,8 @@ def ActorCritic(is_training, env, gamma, actor_step_size, critic_step_size, max_
                 
             tdError = reward + (gamma * newValue) - currentValue    # Calculate squiggly thing (tdError)
             w += (critic_step_size * tdError * s) # Semi-grad update critic
-            gradient = log_softmax_policy_gradient(s, a, Theta)
-            Theta += (actor_step_size * tdError * actor_discount * gradient) # Policy grad update actor
+            gradient = log_softmax_policy_gradient(s, a, theta)
+            theta += (actor_step_size * tdError * actor_discount * gradient) # Policy grad update actor
             s = newState
             actor_discount *= gamma
 
