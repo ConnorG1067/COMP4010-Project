@@ -82,34 +82,28 @@ def plot_run(episodes, rewards_per_episode, path):
 
 # TODO: Finish mine didnt work properly so not using it
 def softmaxProb(x, Theta):
-    h_s = jnp.dot(Theta.T, x)
-
-    exponents = jnp.exp(h_s)
-    sum_exp = jnp.sum(exponents)
-    
-    return exponents / sum_exp
+    transposeTheta = np.transpose(Theta)
+    h = transposeTheta @ x
+    m = np.amax(h)
+    robustH = h - m
+    probs = np.exp(robustH) / np.sum(np.exp(robustH))
+    return probs
 
 # TODO: Finish mine didnt work properly so not using it
 def softmaxPolicy(x, Theta):
-    probabilities = softmaxProb(x, Theta)
-
-    probabilities = np.array(probabilities, dtype=np.float64)
-    prob_sum = np.sum(probabilities)
-    probabilities = probabilities / prob_sum
-
-    return np.random.choice(len(probabilities), p=probabilities)
+    probs = softmaxProb(x, Theta)
+    probsAmount = len(probs)
+    a = np.random.choice(probsAmount, p=probs) 
+    return a
 
 # TODO: Finish mine didnt work properly so not using it
 def logSoftmaxPolicyGradient(x, a, Theta):
     probs = softmaxProb(x, Theta)
-    
-    actions_n = Theta.shape[1]
-    one_hot = np.zeros(actions_n)
-    one_hot[a] = 1
-    
-    delta_vec = one_hot - probs
-    gradient = jnp.outer(x, delta_vec)
-    
+    actions = Theta.shape[1]   
+    temp = np.zeros(actions)
+    temp[a] = 1
+    negativeProbs = temp - probs
+    gradient = np.outer(x, negativeProbs)  
     return gradient
 
 def check_gradient(env):
