@@ -169,6 +169,33 @@ class GridWorldEnv(gym.Env):
         # Return the feature vector
         return self._get_ac_state(), {}
 
+    def _get_dqn_obs(self):
+        #construct observation space for DQN
+        status_map = {'uncollected': 0, 'collected': 1, 'deposited': 2}
+        obs = []
+        obs.append(self.agent_row/(self.grid_rows - 1))
+        obs.append(self.agent_col/(self.grid_cols - 1))
+        obs.append(self._agent_battery / self._agent_max_battery)
+        obs.append(self._agent_held_garbage / self._agent_max_held_garbage)
+
+        for garbage in self._garbage:
+            garbage_row, garbage_col = garbage["location"]
+            obs.append(garbage_row / (self.grid_rows - 1))
+            obs.append(garbage_col / (self.grid_cols - 1))
+            obs.append(status_map[garbage["status"]] / 2.0)
+
+        charging_row, charging_col = self._charging_station_position
+        obs.append(charging_row / (self.grid_rows - 1))
+        obs.append(charging_col / (self.grid_cols - 1))
+
+        trashbin_row, trashbin_col = self._trash_bin_position
+        obs.append(trashbin_row / (self.grid_rows - 1))
+        obs.append(trashbin_col / (self.grid_cols - 1))
+
+        return np.array(obs, dtype=np.float32)
+
+
+
     def reset(self):
         while True:
             r = random.randint(0, self.grid_rows - 1)
@@ -184,7 +211,7 @@ class GridWorldEnv(gym.Env):
 
         for g in self._garbage:
             g["status"] = "uncollected"
-        return self.encode_state()
+        return self.encode_state(), {"dqn_obs": self._get_dqn_obs()}
 
     def encode_state(self):
         status_map = {'uncollected': 0, 'collected': 1, 'deposited': 2}
@@ -292,7 +319,7 @@ class GridWorldEnv(gym.Env):
             
             self._agent_battery -= action_cost
             if not success:
-                reward = -0.1
+                reward -= 0.1
         
         # Map cleared
         if all(g["status"] == "deposited" for g in self._garbage) and not terminated:
@@ -311,7 +338,7 @@ class GridWorldEnv(gym.Env):
         if self.render_mode == 'human':
             self._render_frame()
 
-        return self.encode_state(), reward, terminated, truncated, {}
+        return self.encode_state(), reward, terminated, truncated, {'dqn_obs': self._get_dqn_obs()}
 
 
     ###########################################################################################################
