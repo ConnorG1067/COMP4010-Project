@@ -147,8 +147,7 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
         helpers.update_model(q,model_path)
         helpers.plot_run(episodes, rewards_per_episode, fig_path)
 
-# Seems to work
-# Written by Sean Xie
+
 def actor_critic(is_training, env, discount_factor, episodes, actor_step_size=0.005, critic_step_size=0.005, model_path="", fig_path=""):
     featurizer = helpers.RbfFeaturizer(env, 7)  # CHANGED 100 TO 7 TO REFLECT HOW MANY FEATURES ARE IN A STATE
     Theta, w = helpers.fetch_ac_model(is_training, env, model_path, featurizer)    # Initialize parameters / weights arbitrarily 
@@ -162,6 +161,10 @@ def actor_critic(is_training, env, discount_factor, episodes, actor_step_size=0.
         actor_discount = 1
         
         rewardTotal = 0
+
+        if(i%1000==0):
+            print(i)
+
         while not (terminated or truncated):    # Loop for each step t = 0, 1, 2, ...., T of episode
             a = helpers.softmaxPolicy(s, Theta)    # Choose action A_t ~ π(⋅ | S_t;θ)
             newState, reward, terminated, truncated, moreInfo = env.ac_step(a)   # Take action A_t, observe R_t+1, S_t+1
@@ -252,7 +255,7 @@ def dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_
 
 
 # Every-visit
-def monte_carlo(is_training, env, discount_factor, epsilon, episodes, model_path="", fig_path=""):
+def monti_carlo(is_training, env, discount_factor, epsilon, episodes, model_path="", fig_path=""):
     q = helpers.fetch_model(is_training, env, model_path)
     returns_sum = {}
     returns_count = {}
@@ -303,8 +306,7 @@ def monte_carlo(is_training, env, discount_factor, epsilon, episodes, model_path
 
 
 
-def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, max_model_step, actor_step_size, critic_step_size, is_training=True, render=False, model_path="", fig_path=""):
-#def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, max_model_step, is_training=True, render=False, model_path="", fig_path=""):
+def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, max_model_step, is_training=True, render=False, model_path="", fig_path=""):
     env = GridWorldEnv(render_mode="human" if render else None)
 
     # Algorithms
@@ -316,14 +318,14 @@ def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate,
         sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, model_path, fig_path)
     elif("actor_critic" in model_path):
         # Doesnt work
-        actor_critic(is_training, env, discount_factor, episodes, actor_step_size, critic_step_size, model_path, fig_path) #learning_rate_a
+        actor_critic(is_training, env, discount_factor, episodes, learning_rate_a, model_path=model_path, fig_path=fig_path) #learning_rate_a
     elif("dqn" in model_path):
         # Not finished
         pass
     elif("dyna_q" in model_path):
         dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, max_model_step, model_path, fig_path)
     elif("monti_carlo" in model_path):
-        monte_carlo(is_training, env, discount_factor, epsilon, episodes, model_path, fig_path)
+        monti_carlo(is_training, env, discount_factor, epsilon, episodes, model_path, fig_path)
     
     # TODO : AFTER EVERYTHING EXPERIMENTS AND EASE OF PROGRAM SHIT
 
@@ -331,21 +333,18 @@ def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate,
 
 
 if __name__ == "__main__":
-    iterations = 15000
+    iterations = 2000
     testing = True
  
     if(testing):
         # algorithms = ["q_learning", "sarsa", "q_learning_fa","dyna_q", "monti_carlo"]
         algorithms = ["actor_critic"]
-        #algorithms = ["dyna_q"]
         #step_size_list = [0.0005, 0.001, 0.005, 0.01, 0.1]
         step_size_list = [0.1]
         discount_factor = 0.9
         epsilon_list = [0.9, 0.95, 1]
         epsilon_decay_rate = 0.0001
         max_model_step_list = [5, 10, 50]
-        actor_step_size_list = [-1] # PLACEHOLDER
-        critic_step_size_list = [-1]    # PLACEHOLDER
 
         for algorithm in algorithms:
             for step_size in step_size_list:
@@ -358,8 +357,6 @@ if __name__ == "__main__":
                             epsilon = epsilon,
                             epsilon_decay_rate = epsilon_decay_rate,  
                             max_model_step = steps,
-                            actor_step_size = 0.005,
-                            critic_step_size = 0.005,
                             render = False, 
                             is_training = True, 
                             model_path = f"./models/{algorithm}/{algorithm}_iter_{iterations}_lr_{step_size}_df_{discount_factor}_e_{epsilon}_edr_{epsilon_decay_rate}_ms_{steps}.pkl",
@@ -367,13 +364,14 @@ if __name__ == "__main__":
                         )
                         if algorithm != "dyna_q":
                             break
-                if algorithm == "monti_carlo":
+                if algorithm == "monti_carlo" or algorithm == "actor_critic":
                     break
+            
     else:
         # When running with render mode pick the model path to run with
         running_model_path = "./models/monti_carlo/monti_carlo_iter_15000_lr_0.0005_df_0.9_e_1_edr_0.0001_ms_1.pkl"
         
-        """learning_rate_a = 0.1
+        learning_rate_a = 0.1
         discount_factor = 0.9
         epsilon = 1.0
         epsilon_decay_rate = 0.0001
@@ -389,48 +387,6 @@ if __name__ == "__main__":
             render=True, 
             is_training=False, 
             model_path=running_model_path,
-        )"""
-
-        run(
-            1,
-            learning_rate_a=0.1,
-            discount_factor=0.9,
-            epsilon=1.0,
-            epsilon_decay_rate=0.0001, 
-            max_model_step = 1,
-            actor_step_size = 0.5,
-            critic_step_size = 0.005,
-            render=True, 
-            is_training=False, 
-            model_path=running_model_path
-        )
-
-        run(
-            1,
-            learning_rate_a=0.1,
-            discount_factor=0.9,
-            epsilon=1.0,
-            epsilon_decay_rate=0.0001, 
-            max_model_step = 1, 
-            actor_step_size = 0.005,
-            critic_step_size = 0.5,
-            render=True, 
-            is_training=False, 
-            model_path=running_model_path
-        )
-
-        run(
-            1,
-            learning_rate_a=0.1,
-            discount_factor=0.9,
-            epsilon=1.0,
-            epsilon_decay_rate=0.0001, 
-            max_model_step = 1, 
-            actor_step_size = 0.5,
-            critic_step_size = 0.5,
-            render=True, 
-            is_training=False, 
-            model_path=running_model_path
         )
 
 
