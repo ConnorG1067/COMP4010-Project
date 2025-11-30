@@ -32,7 +32,7 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
         while not truncated and not terminated:
             # Epsilon greedy algorithm
             if(is_training and np.random.rand() < epsilon):
-                action = np.random.randint(0, env.action_space.n - 1)
+                action = np.random.randint(0, env.action_space.n)
             else:
                 action = np.argmax(q[state])
 
