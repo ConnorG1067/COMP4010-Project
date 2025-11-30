@@ -150,50 +150,45 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
 
 def actor_critic(is_training, env, discount_factor, episodes, actor_step_size=0.005, critic_step_size=0.005, model_path="", fig_path=""):
     featurizer = helpers.RbfFeaturizer()(env, 100)
-    Theta, w = helpers.fetch_ac_model(is_training, env, model_path, featurizer)
-
+    Theta, w = helpers.fetch_ac_model(is_training, env, model_path, featurizer)    # Initialize parameters / weights arbitrarily 
+    
     rewards_per_episode = np.zeros(episodes)
-    for i in range(1, episodes):
-        s = env.ac_reset()[0]
+    for i in range(1, episodes + 1):    # Loop forever (for each episode)
+        s, info = env.ac_reset()    # Initialize S0
         s = featurizer.featurize(s)
-
-        
-        rewards = 0
-
-        terminated = truncated = False
+        terminated = truncated = False  
         actor_discount = 1
         
-        while not (terminated or truncated):
-            a = helpers.softmaxPolicy(s, Theta)
+        rewardTotal = 0
+        while not (terminated or truncated):    # Loop for each step t = 0, 1, 2, ...., T of episode
+            a = helpers.softmaxPolicy(s, Theta)    # Choose action A_t ~ π(⋅ | S_t;θ)
+            newState, reward, terminated, truncated, moreInfo = env.step(a)   # Take action A_t, observe R_t+1, S_t+1
+            newState = featurizer.featurize(newState)
 
-            next_state, reward, terminated, truncated, _ = env.step(a)
-
-
-            rewards += reward
-
-            feature_v = featurizer.featurize(next_state)
-
+            rewardTotal += reward
             if(is_training):
-                #(ST;w) ≐ 0
-                #TD_error = R + γ(Max(qhat(S'.a'))) - qhat(S.A)
-                #W.T was multipule both state and action, w just state
-                next_a_value = jnp.dot(w, feature_v)
-                td_error = reward + discount_factor * next_a_value - jnp.dot(w, s)
 
-                # Semi-grad update critic      w ← w + αw ⋅ δt ⋅ ∇vhat(St ; w)
-                w = w + critic_step_size * td_error * s
+                sTranspose = np.transpose(s)
+                currentValue = sTranspose @ w
 
-                # Policy grad update actor     θ ← θ + αθ ⋅ δt ⋅ γt ⋅ ∇log π(At|St;θ)
+                if (terminated == False):
+                    newStateTranspose = np.transpose(newState)
+                    newValue = newStateTranspose @ w
+                else:
+                    newValue = 0
+
+                tdError = reward + (gamma * newValue) - currentValue    # Calculate squiggly thing (tdError)    R + γ(Max(qhat(S'.a'))) - qhat(S.A)    (ST;w) ≐ 0
+                w += (critic_step_size * tdError * s) # Semi-grad update critic    w ← w + αw ⋅ δt ⋅ ∇vhat(St ; w)
                 gradient = helpers.logSoftmaxPolicyGradient(s, a, Theta)
-                Theta = Theta + actor_step_size * td_error * actor_discount * gradient
+
+                Theta += (actor_step_size * tdError * actor_discount * gradient)    # Policy grad update actor    θ ← θ + αθ ⋅ δt ⋅ γt ⋅ ∇log π(At|St;θ)
 
                 actor_discount *= discount_factor # should this remain in is training?
 
-            s = feature_v
+            s = newState
 
         rewards_per_episode[i] = rewards
         
-
     if is_training: 
         helpers.update_ac_model(Theta, w, model_path)
         helpers.plot_run(episodes, rewards_per_episode, fig_path)
