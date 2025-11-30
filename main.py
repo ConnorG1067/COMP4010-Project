@@ -152,7 +152,7 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
     if is_training: 
         update_model(q,"sarsa")
 
-def ActorCritic(is_training, env, discount_factor, actor_step_size, critic_step_size, max_episodes, evaluate_every):
+def ActorCritic(is_training, env, gamma, actor_step_size, critic_step_size, max_episodes, evaluate_every):
     Theta, w = ac_initialize(env.states, env.actions)    # Initialize parameters / weights arbitrarily 
     for i in range(1, max_episodes + 1):    # Loop forever (for each episode)
         state = initialize_s(env)    # Initialize S0
