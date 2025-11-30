@@ -111,8 +111,8 @@ class DoubleDQNAgent:
         self.target_q_network.set_weights(self.main_q_network.get_weights())
 
     def save_model(self):
-      self.main_q_network.save("trained_double_dqn_model.keras")
+      self.main_q_network.save("./models/dqn/trained_double_dqn_model.keras")
 
     def load_model(self):
-      self.main_q_network = keras.models.load_model("trained_double_dqn_model.keras")
+      self.main_q_network = keras.models.load_model("./models/dqn/trained_double_dqn_model.keras")
       self.target_q_network.set_weights(self.main_q_network.get_weights())

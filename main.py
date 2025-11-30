@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 from fa_env.envs.grid_world import GridWorldEnv
 from datetime import datetime
 import helpers
+from tqdm import tqdm
+from run_dqn import ddqn_training_loop
+from dqn import DoubleDQNAgent
 
 
 # Algorithms
@@ -18,14 +21,13 @@ def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsi
     q = helpers.fetch_model(is_training, env, model_path)
     rewards_per_episode = np.zeros(episodes)
 
-    for i in range(episodes):
+    for i in tqdm(range(episodes)):
         # Reset environment 
-        state = env.reset()
+        state = env.reset()[0]
         terminated = False
         truncated = False
         total_reward = 0
-        if(i%1000==0):
-            print(i)
+        
 
         while not truncated and not terminated:
             # Epsilon greedy algorithm
@@ -60,8 +62,8 @@ def q_learning_fa(is_training, env, learning_rate_a, discount_factor, epsilon, e
     W = helpers.fetch_model_fa(is_training, env, model_path, featurizer)
     rewards_per_episode = np.zeros(episodes)
     
-    for i in range(1, episodes + 1):
-        s = env.reset()
+    for i in tqdm(range(1, episodes + 1)):
+        s = env.reset()[0]
         s = helpers.featurizer.featurize(s) # convert to a feature vector
         terminated = truncated = False
         total_reward = 0
@@ -98,16 +100,13 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
     q = helpers.fetch_model(is_training, env, model_path)
     rewards_per_episode = np.zeros(episodes)
 
-    for i in range(episodes):
+    for i in tqdm(range(episodes)):
         # Reset environment 
-        state = env.reset()
+        state = env.reset()[0]
         terminated = False
         truncated = False
 
         rewards = 0
-
-        if(i%1000==0):
-            print(i)
 
         # Choose initial action using epsilon-greedy
         if is_training and np.random.rand() < epsilon:
@@ -147,27 +146,23 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
         helpers.update_model(q,model_path)
         helpers.plot_run(episodes, rewards_per_episode, fig_path)
 
-
 def actor_critic(is_training, env, discount_factor, episodes, actor_step_size=0.005, critic_step_size=0.005, model_path="", fig_path=""):
     featurizer = helpers.RbfFeaturizer(env, 7)  # CHANGED 100 TO 7 TO REFLECT HOW MANY FEATURES ARE IN A STATE
     Theta, w = helpers.fetch_ac_model(is_training, env, model_path, featurizer)    # Initialize parameters / weights arbitrarily 
     
     rewards_per_episode = np.zeros(episodes)
 
-    for i in range(1, episodes + 1):    # Loop forever (for each episode)
-        s, info = env.ac_reset()    # Initialize S0
+    for i in tqdm(range(1, episodes + 1)):    # Loop forever (for each episode)
+        s, info = env.reset(is_ac=True)    # Initialize S0
         #s = featurizer.featurize(s)    COMMENTED OUT BECAUSE s IS ALREADY A FEATURE VECTOR
         terminated = truncated = False  
         actor_discount = 1
         
         rewardTotal = 0
 
-        if(i%1000==0):
-            print(i)
-
         while not (terminated or truncated):    # Loop for each step t = 0, 1, 2, ...., T of episode
             a = helpers.softmaxPolicy(s, Theta)    # Choose action A_t ~ π(⋅ | S_t;θ)
-            newState, reward, terminated, truncated, moreInfo = env.ac_step(a)   # Take action A_t, observe R_t+1, S_t+1
+            newState, reward, terminated, truncated, moreInfo = env.step(a, is_ac=True)   # Take action A_t, observe R_t+1, S_t+1
             #newState = featurizer.featurize(newState)  COMMENTED OUT BECAUSE newState IS ALREADY A FEATURE VECTOR
 
             rewardTotal += reward
@@ -203,14 +198,12 @@ def dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_
     rewards_per_episode = np.zeros(episodes)
     m = {}
 
-    for i in range(episodes):
+    for i in tqdm(range(episodes)):
         # Reset environment 
-        state = env.reset()
+        state = env.reset()[0]
         terminated = False
         truncated = False
         total_reward = 0
-        if(i%1000==0):
-            print(i)
 
         while not truncated and not terminated:
             # Epsilon greedy algorithm
@@ -253,7 +246,6 @@ def dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_
         helpers.update_model(q, model_path)
         helpers.plot_run(episodes, rewards_per_episode, fig_path)
 
-
 # Every-visit
 def monti_carlo(is_training, env, discount_factor, epsilon, episodes, model_path="", fig_path=""):
     q = helpers.fetch_model(is_training, env, model_path)
@@ -261,15 +253,13 @@ def monti_carlo(is_training, env, discount_factor, epsilon, episodes, model_path
     returns_count = {}
     rewards_per_episode = np.zeros(episodes)
 
-    for i in range(episodes):
-        state = env.reset()
+    for i in tqdm(range(episodes)):
+        state = env.reset()[0]
         episode = []
         terminated = False
         truncated = False
         total_reward = 0
-        if(i%1000==0):
-            print(i)
-
+        
         while not terminated and not truncated:
             if is_training and np.random.rand() < epsilon:
                 action = np.random.randint(0, env.action_space.n)
@@ -320,33 +310,35 @@ def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate,
         # Doesnt work
         actor_critic(is_training, env, discount_factor, episodes, learning_rate_a, model_path=model_path, fig_path=fig_path) #learning_rate_a
     elif("dqn" in model_path):
-        # Not finished
-        pass
+        obs = env.reset()[1]
+        input_shape = obs['dqn_obs'].shape[0]
+        num_actions = env.action_space.n
+        rewards = ddqn_training_loop(env, DoubleDQNAgent(input_shape, num_actions), episodes)
+        helpers.plot_run(episodes, rewards, "./plots/dqn/ddqn_training_plot.png")
     elif("dyna_q" in model_path):
         dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, max_model_step, model_path, fig_path)
     elif("monti_carlo" in model_path):
         monti_carlo(is_training, env, discount_factor, epsilon, episodes, model_path, fig_path)
     
-    # TODO : AFTER EVERYTHING EXPERIMENTS AND EASE OF PROGRAM SHIT
-
     env.close()
 
 
 if __name__ == "__main__":
-    iterations = 2000
+    iterations = 15000
     testing = True
  
     if(testing):
-        # algorithms = ["q_learning", "sarsa", "q_learning_fa","dyna_q", "monti_carlo"]
+        # algorithms = ["q_learning", "sarsa", "q_learning_fa", "dyna_q", "monti_carlo", "dqn"]
         algorithms = ["actor_critic"]
-        #step_size_list = [0.0005, 0.001, 0.005, 0.01, 0.1]
-        step_size_list = [0.1]
+        step_size_list = [0.0005, 0.001, 0.005, 0.01, 0.1]
         discount_factor = 0.9
         epsilon_list = [0.9, 0.95, 1]
         epsilon_decay_rate = 0.0001
         max_model_step_list = [5, 10, 50]
 
         for algorithm in algorithms:
+            print(f"Starting {algorithm}")
+            if(algorithm == "dqn"): run(1000, learning_rate_a = None, discount_factor = None, epsilon = None, epsilon_decay_rate = None, max_model_step = None, render = False, is_training = True, model_path="dqn")
             for step_size in step_size_list:
                 for epsilon in epsilon_list:
                     for steps in max_model_step_list:
@@ -364,9 +356,9 @@ if __name__ == "__main__":
                         )
                         if algorithm != "dyna_q":
                             break
+
                 if algorithm == "monti_carlo" or algorithm == "actor_critic":
-                    break
-            
+                    break            
     else:
         # When running with render mode pick the model path to run with
         running_model_path = "./models/monti_carlo/monti_carlo_iter_15000_lr_0.0005_df_0.9_e_1_edr_0.0001_ms_1.pkl"

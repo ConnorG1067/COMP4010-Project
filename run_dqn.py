@@ -55,9 +55,6 @@ def run_trained_ddqn(env, agent, episodes = 2):
       episode_reward += reward
 
     
-    
-
-
 def run(episodes, is_training=True, render=False):
   env = GridWorldEnv(render_mode="human" if render else None)
   state_index, obs = env.reset()
@@ -76,6 +73,4 @@ def run(episodes, is_training=True, render=False):
     agent.epsilon = 0.0
     run_trained_ddqn(env, agent, episodes)
     env.close()
-
-run(episodes=1000, is_training=True, render=False)
 
