@@ -1,6 +1,6 @@
 # Project Progress Update 4 - Nov 30
 
-#### 
+####
 
 #### Group Member Info
 
@@ -34,6 +34,7 @@
 * Adjusted Env reward structure 
 * Implemented algorithms Actor Critic, and finished SARSA
 * Tested algorithms with varying control variables
+* Did results analysis
 
 
 
@@ -45,8 +46,9 @@
 * Tried to figure out how to represent our observation space in a way that Q-learning could handle
 * Simplified the env
 * Adjusted Env reward structure 
-* Implemented algorithms QLearningFa, Actor Critic
+* Implemented algorithms QLearningFa, Actor Critic, Monti Carlo(maybe doesnt work), Dynamic Q-Learning(maybe doesnt work)
 * Tested algorithms with varying control variables
+* Did results analysis
 
 
 ###### Shawnia
@@ -54,6 +56,7 @@
 * Git hash:
 * Worked on implenting DQN (Simplified the env, changed how implentation had to be done)
 * Worked on implenting DQN again (Simplified the env, changed how implentation had to be done)
+* joined connor and jackson on a coding live share
 * Adjusted Env reward structure 
 * Tested algorithms with varying control variables
 
