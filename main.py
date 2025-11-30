@@ -32,13 +32,64 @@ def plot_run(episodes, rewards_per_episode, algorithm):
 def convert_action_to_int(array):
     return (array[0] + 1) * (array[1] + 1) - 1
 
-def ACInitialize(states, actions):
-    Theta = np.random.rand(states, actions) # Initialize parameters / weights arbitrarily 
+# Helper functions for actor-critic algorithm start here
+def ac_initialize(states, actions):    # Initialize parameters / weights arbitrarily 
+    Theta = np.random.rand(states, actions) 
     w = np.random.rand(actions)
-    return states, actions
+    return Theta, w
 
-def InitializeS()
+def initialize_s(env):    # Initialize S0
+    s, info = env.reset()    
+    return s
 
+def softmax_prob(state, Theta):    # Calculate probabilities based on softmax
+    transposeTheta = np.transpose(Theta)    
+    h = transposeTheta @ state
+    m = np.amax(h)
+    robustH = h - m
+    probs = np.exp(robustH) / np.sum(np.exp(robustH))  
+    return probs
+
+def softmax_policy(state, Theta):    # Acquire action sampled from softmax probabilities
+    probs = softmaxProb(state, Theta)
+    probsAmount = len(probs)
+    a = np.random.choice(probsAmount, p=probs)  
+    return a
+
+def log_softmax_policy_gradient(state, a, Theta):    # Calculate softmax policy gradient
+    probs = softmaxProb(state, Theta)
+    actions = Theta.shape[1]   
+    temp = np.zeros(actions)
+    temp[a] = 1
+    negativeProbs = temp - probs
+    gradient = np.outer(state, negativeProbs)  
+    return gradient
+
+def take_action_observe(env, a, w):    # Take action At, observe Rt+1, St+1
+    newState, reward, terminated, truncated, moreInfo = env.step(a)   
+    sTranspose = np.transpose(s)
+    currentValue = sTranspose @ w
+    if (terminated == False):
+        newStateTranspose = np.transpose(newState)
+        newValue = newStateTranspose @ w
+    else:
+        newValue = 0
+
+    return newState, reward, currentValue, newValue, newTerminated, newTruncated
+
+def calc_td_error(reward, gamma, newValue, currentValue):    # Calculate squiggly thing (tdError)
+    tdError = reward + (gamma * newValue) - currentValue
+    return tdError
+
+def update_critic(w, critic_step_size, tdError, state):    # Semi-grad update critic
+    w += (critic_step_size * tdError * s)
+    return w
+
+def update_actor(state, a, Theta, actor_step_size, tdError, actor_discount):    # Policy grad update actor
+    gradient = log_softmax_policy_gradient(s, a, Theta)
+    Theta += (actor_step_size * tdError * actor_discount * gradient)
+    return Theta
+# Helper functions for actor-critic algorithm end here
 
 # Algorithms
 def q_learning(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes): 
@@ -160,8 +211,22 @@ def sarsa(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_d
     if is_training: 
         update_model(q,"sarsa")
 
-def ActorCritic(env, discountFactor, actorStepSize, criticStepSize, maxEpisodes, evaluateEvery):
-    theta = 
+def ActorCritic(is_training, env, discount_factor, actor_step_size, critic_step_size, max_episodes, evaluate_every):
+    Theta, w = ac_initialize(env.states, env.actions)    # Initialize parameters / weights arbitrarily 
+    for i in range(1, max_episodes + 1):    # Loop forever (for each episode)
+        state = initialize_s(env)    # Initialize S0
+        terminated = truncated = False
+        actor_discount = 1
+        while not (terminated or truncated):    # Loop for each step t = 0, 1, 2, ...., T of episode
+            a = softmax_policy(state, Theta)    # Acquire action sampled from softmax probabilities
+            newState, reward, currentValue, newValue, newTerminated, newTruncated = take_action_observe(env, a, w)    # Take action At, observe Rt+1, St+1
+            terminated = newTerminated
+            truncated = newTruncated
+            tdError = calc_td_error(reward, gamma, newValue, currentValue)    # Calculate squiggly thing (tdError)
+            w = update_critic(w, critic_step_size, tdError, state):    # Semi-grad update critic
+            Theta = update_actor(state, a, Theta, actor_step_size, tdError, actor_discount):    # Policy grad update actor
+            state = newState
+            actor_discount *= gamma  
 
 
 def run(episodes, is_training=True, render=False):
