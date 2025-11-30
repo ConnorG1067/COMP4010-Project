@@ -60,7 +60,7 @@
 * Adjusted Env reward structure 
 * Tested algorithms with varying control variables
 
-###### Tony
+###### Antony
 
 * Git hash: c2338a5e6af522c644522b93845261eda2cee85e
 * Git hash: 867bf1c378d6fd071e00b6fcd83dfefcb4e21da9
