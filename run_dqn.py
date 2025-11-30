@@ -34,7 +34,7 @@ def ddqn_training_loop(env, agent, episodes):
     every_episode_rewards.append(episode_reward)
     
   agent.save_model()
-  print("\nTraining complete! Model saved.\n")
+  print("\nTraining completed. Model saved.\n")
   
   return every_episode_rewards
 
@@ -67,6 +67,7 @@ def run(episodes, is_training=True, render=False):
   agent = DoubleDQNAgent(input_shape, num_actions)
   if is_training:
     rewards = ddqn_training_loop(env, agent, episodes)
+    helpers.plot_run(episodes, rewards, "./plots/dqn/ddqn_training_plot.png")
 
     env.close()
     return rewards
