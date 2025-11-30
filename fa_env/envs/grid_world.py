@@ -312,6 +312,120 @@ class GridWorldEnv(gym.Env):
             self._render_frame()
 
         return self.encode_state(), reward, terminated, truncated, {}
+    
+    # Seems to work - but we really gotta merge this with regular step
+    # Written by Sean Xie
+    def ac_step(self, action):
+        # Base Variables
+        terminated = False
+        truncated = False
+        reward = -0.01  
+        movement_cost = 1
+        action_cost = 0.5
+
+        self._iteration_count += 1
+        
+
+        # Movement
+        #if action in [0, 1, 2, 3]:
+        if action < 4:
+            new_row, new_col = self.agent_row, self.agent_col
+            if action == 0: 
+                new_row = self.agent_row - 1
+                if self.render_mode == 'human': print("Up")
+            elif action == 1: 
+                new_row =  self.agent_row + 1
+                if self.render_mode == 'human': print("Down")
+            elif action == 2: 
+                new_col =  self.agent_col + 1
+                if self.render_mode == 'human': print("Right")
+            elif action == 3: 
+                new_col = self.agent_col - 1
+                if self.render_mode == 'human': print("Left")
+
+            # Check walls
+            if((new_row < 0 or new_col < 0) or (new_row > 12 or new_col > 12) or self.terrain_map[new_row][new_col] in ['w', 'b']):
+                reward -= 0.1  # penalty for trying to move into wall
+            else:
+                # Update position
+                self.agent_row, self.agent_col = new_row, new_col
+                
+                # Apply terrain effects
+                # terrain = self.terrain_map[self.agent_row][self.agent_col]
+                # if terrain == 'g' :
+                #     self._agent_battery -= movement_cost * 2
+                # elif terrain == 's' :
+                #     self._agent_battery -= movement_cost * 4
+                # else: # pavment
+                self._agent_battery -= movement_cost
+        
+        # Recharge
+        elif action == 4:
+            if self.render_mode == 'human': print("Recharge")
+            if (self.agent_row, self.agent_col) == self._charging_station_position:
+                self._agent_battery = min(self._agent_battery+5, self._agent_max_battery)
+                # if self.battery_state() == 0:
+                #     reward += 0.1
+                # elif self.battery_state() == 1:
+                #     reward += 0.05
+                # elif self.battery_state() == 2:
+                #     reward += 0.01
+                # else:
+                #     reward -= 0.1
+            else:
+                self._agent_battery -= action_cost
+
+
+        # Pickup
+        elif action == 5:
+            if self.render_mode == 'human': print("Pick up")
+            success = False
+            for g in self._garbage:
+                if g["status"] == "uncollected" and g["location"] == (self.agent_row, self.agent_col) and self._agent_held_garbage < self._agent_max_held_garbage:
+                    g["status"] = "collected"
+                    reward += 0.2
+                    success = True
+                    self._agent_held_garbage += 1
+                    self._env_garbage_count -= 1
+
+            self._agent_battery -= action_cost
+            if not success:
+                reward -= 0.1
+        
+        # Dropoff
+        elif action == 6:
+            if self.render_mode == 'human': print("Drop off")
+            success = False
+            if (self.agent_row, self.agent_col) == self._trash_bin_position:
+                for g in self._garbage:
+                    if g["status"] == "collected":
+                        g["status"] = "deposited"
+                        reward += 0.5
+                        success = True
+                        self._agent_held_garbage = 0
+            
+            self._agent_battery -= action_cost
+            if not success:
+                reward = -0.1
+        
+        # Map cleared
+        if all(g["status"] == "deposited" for g in self._garbage) and not terminated:
+            terminated = True
+            reward += 1
+
+        # Battery died
+        elif self._agent_battery <= 0 and not terminated:
+            terminated = True
+            reward -= 1
+
+        if(self._iteration_count > self._max_iteration_count):
+            truncated = True
+        
+        # Render pygame
+        if self.render_mode == 'human':
+            self._render_frame()
+
+        return self._get_ac_state(), reward, terminated, truncated, {}
 
 
     ###########################################################################################################
