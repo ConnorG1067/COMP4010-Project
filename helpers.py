@@ -80,7 +80,8 @@ def plot_run(episodes, rewards_per_episode, path):
     plt.savefig(path)
     plt.close()
 
-# TODO: Finish mine didnt work properly so not using it
+# Seems to work
+# Written by Sean Xie
 def softmaxProb(x, Theta):
     transposeTheta = np.transpose(Theta)
     h = transposeTheta @ x
@@ -89,14 +90,16 @@ def softmaxProb(x, Theta):
     probs = np.exp(robustH) / np.sum(np.exp(robustH))
     return probs
 
-# TODO: Finish mine didnt work properly so not using it
+# Seems to work
+# Written by Sean Xie
 def softmaxPolicy(x, Theta):
     probs = softmaxProb(x, Theta)
     probsAmount = len(probs)
     a = np.random.choice(probsAmount, p=probs) 
     return a
 
-# TODO: Finish mine didnt work properly so not using it
+# Seems to work
+# Written by Sean Xie
 def logSoftmaxPolicyGradient(x, a, Theta):
     probs = softmaxProb(x, Theta)
     actions = Theta.shape[1]   
