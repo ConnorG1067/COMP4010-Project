@@ -31,7 +31,7 @@ MAP = np.array([
 #s - Sand 0.05 chance of getting stuck, movment cost from sand is triple
 #w - Water a phsical barrier that cant be interacted with similer to borders
 
-# Object types
+#Object types
 #c - charging station charges robots battery by x% for each step that ends on it
 #b - bush/obstacles a phsical barrier that cant be interacted with similer to borders
 #t - target/trash bin the dropoff location for litter
@@ -53,7 +53,7 @@ class GridWorldEnv(gym.Env):
         self._max_iteration_count = 1000000
         self._iteration_count = 0
 
-        # Status: uncollected, collected,and deposited
+        #status uncollected,collected, deposited
         self._trash_bin_position = (10, 10) 
         self._garbage = [{"location": (12, 0), "status": "uncollected"},
                         {"location": (1, 3), "status": "uncollected"},
@@ -74,7 +74,7 @@ class GridWorldEnv(gym.Env):
             self.grid_rows * self.grid_cols * 4 * (3 ** self.env_base_garbage_count)
         )
 
-        # Assert render_mode is None or render_mode in self.metadata['render_modes']
+        #assert render_mode is None or render_mode in self.metadata['render_modes']
         self.render_mode = render_mode
 
         '''
@@ -88,86 +88,11 @@ class GridWorldEnv(gym.Env):
         self.clock = None
 
     def battery_state(self):
-        # Convert battery to discrete state
+        #Convert battery to discrete state
         if self._agent_battery <= 25: return 0  # Low
         elif self._agent_battery <= 50: return 1  # Medium
         elif self._agent_battery <= 85: return 2  # High
         else: return 3  # Max
-
-    def _get_ac_state(self):
-        """Helper to construct the Actor-Critic feature vector"""
-        status_map = {'uncollected': 0, 'collected': 1, 'deposited': 2}
-        
-        # Features: [Row, Col, Battery, HeldGarbage, Garbage1_Status, Garbage2_Status, Garbage3_Status]
-        state = [
-            self.agent_row / (self.grid_rows - 1),     # Normalized Row
-            self.agent_col / (self.grid_cols - 1),     # Normalized Col
-            self._agent_battery / self._agent_max_battery, # Normalized Battery
-            1.0 if self._agent_held_garbage > 0 else 0.0   # Binary Held Garbage
-        ]
-        
-        # Add status of each piece of garbage
-        for g in self._garbage:
-            state.append(status_map[g["status"]] / 2.0) # Normalize 0,1,2 -> 0.0, 0.5, 1.0
-
-        return np.array(state, dtype=np.float32)
-
-    # -----------------------------------------------------------
-    # STANDARD RESET (For Q-Learning / SARSA)
-    # Returns: np.array([DiscreteIndex])
-    # -----------------------------------------------------------
-    def reset(self, *, seed=None, options=None):
-        self.ac_mode = False # Disable AC mode
-        
-        super().reset(seed=seed)
-        while True:
-            r = self.np_random.integers(0, self.grid_rows)
-            c = self.np_random.integers(0, self.grid_cols)
-            if self.terrain_map[r][c] not in ['w', 'b']:
-                self.agent_row, self.agent_col = r, c
-                break
-        
-        self._iteration_count = 0
-        self._agent_battery = self._agent_max_battery
-        self._env_garbage_count = 3
-        self._agent_held_garbage = 0
-
-        for g in self._garbage:
-            g["status"] = "uncollected"
-        
-        if self.render_mode == "human":
-            self._render_frame()
-            
-        return np.array([self.encode_state()], dtype=np.float32), {}
-
-    # -----------------------------------------------------------
-    # ACTOR-CRITIC RESET
-    # Returns: np.array([Row, Col, Battery, ...])
-    # -----------------------------------------------------------
-    def ac_reset(self, *, seed=None, options=None):
-        self.ac_mode = True # Enable AC mode for subsequent steps
-        
-        super().reset(seed=seed)
-        while True:
-            r = self.np_random.integers(0, self.grid_rows)
-            c = self.np_random.integers(0, self.grid_cols)
-            if self.terrain_map[r][c] not in ['w', 'b']:
-                self.agent_row, self.agent_col = r, c
-                break
-        
-        self._iteration_count = 0
-        self._agent_battery = self._agent_max_battery
-        self._env_garbage_count = 3
-        self._agent_held_garbage = 0
-
-        for g in self._garbage:
-            g["status"] = "uncollected"
-        
-        if self.render_mode == "human":
-            self._render_frame()
-            
-        # Return the feature vector
-        return self._get_ac_state(), {}
 
     def reset(self):
         while True:
@@ -188,21 +113,21 @@ class GridWorldEnv(gym.Env):
 
     def encode_state(self):
         status_map = {'uncollected': 0, 'collected': 1, 'deposited': 2}
-        garbage_code = 0
+        passenger_code = 0
         base = 3
         for i, p in enumerate(self._garbage):
-            garbage_code += status_map[p["status"]] * (base ** i)
+            passenger_code += status_map[p["status"]] * (base ** i)
         
         state_idx = (
             self.agent_row * self.grid_cols * 4 * (base ** self.env_base_garbage_count) +
             self.agent_col * 4 * (base ** self.env_base_garbage_count) +
             self.battery_state() * (base ** self.env_base_garbage_count) +
-            garbage_code
+            passenger_code
         )
         return state_idx
 
     def step(self, action):
-        # Base Variables
+        #base variables
         terminated = False
         truncated = False
         reward = -0.01  
@@ -235,13 +160,16 @@ class GridWorldEnv(gym.Env):
             else:
                 # Update position
                 self.agent_row, self.agent_col = new_row, new_col
-                
-                # Apply terrain effects
+                # # Apply terrain effects
                 # terrain = self.terrain_map[self.agent_row][self.agent_col]
                 # if terrain == 'g' :
                 #     self._agent_battery -= movement_cost * 2
+                #     if random.random() < 0.01:
+                #         reward = -0.5; terminated = True  # stuck on grass
                 # elif terrain == 's' :
                 #     self._agent_battery -= movement_cost * 4
+                #     if random.random() < 0.03:
+                #         reward = -1; terminated = True  # stuck on sand 
                 # else: # pavment
                 self._agent_battery -= movement_cost
         
@@ -249,7 +177,7 @@ class GridWorldEnv(gym.Env):
         elif action == 4:
             if self.render_mode == 'human': print("Recharge")
             if (self.agent_row, self.agent_col) == self._charging_station_position:
-                self._agent_battery = min(self._agent_battery+5, self._agent_max_battery)
+                self._agent_battery+=5
                 # if self.battery_state() == 0:
                 #     reward += 0.1
                 # elif self.battery_state() == 1:
@@ -263,6 +191,8 @@ class GridWorldEnv(gym.Env):
 
 
         # Pickup
+
+        # TODO : Add if current holding is greater than 1
         elif action == 5:
             if self.render_mode == 'human': print("Pick up")
             success = False
@@ -299,7 +229,7 @@ class GridWorldEnv(gym.Env):
             terminated = True
             reward += 1
 
-        # Battery died
+        #Battery died
         elif self._agent_battery <= 0 and not terminated:
             terminated = True
             reward -= 1
@@ -307,7 +237,7 @@ class GridWorldEnv(gym.Env):
         if(self._iteration_count > self._max_iteration_count):
             truncated = True
         
-        # Render pygame
+        #Render pygame
         if self.render_mode == 'human':
             self._render_frame()
 
@@ -337,7 +267,7 @@ class GridWorldEnv(gym.Env):
         # Objects
         recharge = pygame.image.load('./fa_env/env_assets/charge_1.png')
         trashbin = pygame.image.load('./fa_env/env_assets/trashcan_1.png')
-        bush = pygame.image.load('./fa_env/env_assets/obstacle_10.png') 
+        bush = pygame.image.load('./fa_env/env_assets/obstacle_10.png'), 
         garbage = pygame.image.load('./fa_env/env_assets/garbage.png')
 
         # Recharge
@@ -350,16 +280,7 @@ class GridWorldEnv(gym.Env):
             pygame.transform.scale(trashbin,(square_size, square_size)),
             (square_size * self._trash_bin_position[1], square_size * self._trash_bin_position[0])
             )
-        
-        # Bushes
-        # bush_spaces = np.argwhere(np.isin(self.terrain_map, ['b']))
-        # for row, col in bush_spaces:
-        #     canvas.blit(
-        #         pygame.transform.scale(bush, (square_size, square_size)),
-        #         (square_size * col, square_size * row)
-        #         )
 
-        # Garbage
         for g in self._garbage:
             if g["status"] == "uncollected":
                 canvas.blit(
@@ -418,7 +339,7 @@ class GridWorldEnv(gym.Env):
         # keep the framerate stable.
         self.clock.tick(self.metadata['render_fps'])
 
-        # Does not end run nicely, the results will not be saved
+        # Does not end run nicely the results will not be saved
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.display.quit()

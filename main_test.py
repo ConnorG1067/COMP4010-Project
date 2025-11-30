@@ -201,7 +201,7 @@ def actor_critic(is_training, env, discount_factor, episodes, actor_step_size=0.
 def dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate, episodes, max_model_step, model_path="", fig_path=""): 
     q = helpers.fetch_model(is_training, env, model_path)
     rewards_per_episode = np.zeros(episodes)
-    m = {}
+    map = {}
 
     for i in range(episodes):
         # Reset environment 
@@ -215,37 +215,38 @@ def dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_
         while not truncated and not terminated:
             # Epsilon greedy algorithm
             if(is_training and np.random.rand() < epsilon):
-                action = np.random.randint(0, env.action_space.n -1)
+                action = np.random.randint(0, env.action_space.n)
             else:
                 action = np.argmax(q[state])
 
             new_state, reward, terminated, truncated, _ = env.step(action)
             total_reward += reward
-
+            if(reward>0):
+                print(reward)
             if(is_training):
                 # Q(s, a) ← Q(s, a) + α * [r + γ * max(Q(s', ·)) - Q(s, a)]
                 q[state, action] += learning_rate_a * (reward + discount_factor * np.max(q[new_state]) - q[state, action])
+
+
+                #Model(S,A) <- R, S'    
+                map[(state, action)] = (reward, new_state)
                 
-                # Model(S,A) <- R, S'    
-                m[(state, action)] = (reward, new_state)
-                
-                # PlanningUpdate(Q, Model)
-                keys = list(m.keys())
+                #PlanningUpdate(Q, Model)
+                keys = list(map.keys())
                 for i in range(max_model_step):
                     s, a = keys[np.random.choice(len(keys))] 
                     
-                    # R, S' <-Model(S,A)
-                    r, new_s = m[(s, a)]
-                    q[s, a] += learning_rate_a * (r + discount_factor * np.max(q[new_s]) - q[s, a])
-
+                    #R, S' <-Model(S,A)
+                    r, new_s = map[(s, a)]
+                    q[s, a] += step_size * (r + discount_factor * np.max(q[new_s]) - q[s, a])
 
             state = new_state
 
-        #Update exploration rate, then lowering learning rate once fully greedy
-        epsilon = max(epsilon - epsilon_decay_rate, 0) # fast linear decline
-        #epsilon = max(epsilon * epsilon_decay_rate, 0.01)  # slow exponential decline
-        if epsilon == 0:
-            learning_rate_a = 0.0001  # Lower learning rate once fully greedy
+        # Update exploration rate, then lowering learning rate once fully greedy
+        if(is_training):
+            epsilon = max(epsilon * epsilon_decay_rate, 0.01)
+            if epsilon == 0:
+                learning_rate_a = 0.0001  # Lower learning rate once fully greedy
 
         rewards_per_episode[i] = total_reward
 
@@ -257,8 +258,8 @@ def dyna_q(is_training, env, learning_rate_a, discount_factor, epsilon, epsilon_
 # Every-visit
 def monte_carlo(is_training, env, discount_factor, epsilon, episodes, model_path="", fig_path=""):
     q = helpers.fetch_model(is_training, env, model_path)
-    returns_sum = {}
-    returns_count = {}
+    returns_sum = {}  # For storing cumulative returns
+    returns_count = {}  # For counting visits
     rewards_per_episode = np.zeros(episodes)
 
     for i in range(episodes):
@@ -333,15 +334,14 @@ def run(episodes, learning_rate_a, discount_factor, epsilon, epsilon_decay_rate,
 
 
 if __name__ == "__main__":
-    iterations = 5000
+    iterations = 10000
     testing = True
  
     if(testing):
         # algorithms = ["q_learning", "sarsa", "q_learning_fa","dyna_q", "monti_carlo"]
         # algorithms = ["actor_critic"]
         algorithms = ["dyna_q"]
-        #step_size_list = [0.0005, 0.001, 0.005, 0.01, 0.1]
-        step_size_list = [0.1]
+        step_size_list = [0.0005, 0.001, 0.005, 0.01, 0.1]
         discount_factor = 0.9
         epsilon_list = [0.9, 0.95, 1]
         epsilon_decay_rate = 0.0001
