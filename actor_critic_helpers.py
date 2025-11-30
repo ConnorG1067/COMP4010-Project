@@ -21,13 +21,13 @@ def softmax_prob(state, Theta):    # Calculate probabilities based on softmax
     return probs
 
 def softmax_policy(state, Theta):    # Acquire action sampled from softmax probabilities
-    probs = softmaxProb(state, Theta)
+    probs = softmax_prob(state, Theta)
     probsAmount = len(probs)
     a = np.random.choice(probsAmount, p=probs)  
     return a
 
 def log_softmax_policy_gradient(state, a, Theta):    # Calculate softmax policy gradient
-    probs = softmaxProb(state, Theta)
+    probs = softmax_prob(state, Theta)
     actions = Theta.shape[1]   
     temp = np.zeros(actions)
     temp[a] = 1
